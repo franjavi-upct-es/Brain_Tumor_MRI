@@ -1,0 +1,21 @@
+{
+  "name": "Ubuntu + CUDA + Python 3.10",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "features": {
+    "ghcr.io/devcontainers/features/nvidia-cuda:2": {
+      "cuda_version": "12.1"
+    }
+  },
+  "runArgs": ["--gpus", "all"],
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "postCreateCommand": "python3.10 -m pip install --upgrade pip setuptools wheel",
+  "remoteUser": "vscode",
+  "extensions": [
+    "ms-python.python",
+    "ms-vscode.cpptools"
+  ]
+}
