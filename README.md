@@ -85,13 +85,16 @@ Grad-CAM heatmaps provide a visualization of salient regions influencing predict
 
 1. Compute gradients of class score w.r.t. feature maps $A^k$ of the last conv layer.
 2. Average gradients to obtain importance weights $\alpha_k$:
-   $$
-   \alpha_k=\dfrac{1}{Z}\sum_i\sum_j\dfrac{\partial y^c}{\partial A_{ij}^k}.
-   $$
-3. Weighted combination gives the heatmap:
-   $$
-   L_{\text{Grad-CAM}}^c=\mathrm{ReLU}\left(\sum_k\alpha_kA^k\right).
-   $$
+   
+$$
+\alpha_k=\frac{1}{Z}\sum_i\sum_j\frac{\partial y^c}{\partial A_{ij}^k}.
+$$
+   
+4. Weighted combination gives the heatmap:
+
+$$
+L_{\text{Grad-CAM}}^c=\mathrm{ReLU}\left(\sum_k\alpha_kA^k\right).
+$$
 
 ### Robust Evaluation
 
