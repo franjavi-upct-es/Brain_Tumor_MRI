@@ -47,7 +47,7 @@ The dataset often presents imbalance classes. We address this with:
 - Automatic **class weights** during training.
 - Optional oversampling.
 
-**Class weights.** If $n_c$ is the number of samples in class $c$, $N=\displaystyle\sum_c n_c$, and $C$ the number of classes, we weight each class as
+**Class weights.** If $n_c$ is the number of samples in class $c$, $N=\sum_c n_c$, and $C$ the number of classes, we weight each class as
 
 $$
 w_c=\dfrac{N}{Cn_c},
@@ -73,8 +73,8 @@ $$
 
 **Reliability metrics.** We report calibration with:
 
-- **ECE** (Expected Calibration Error): $\displaystyle\sum_b\frac{|B_b|}{N},\big|\operatorname{acc}(B_b)-\operatorname{conf}(B_b)\big|$.
-- **MCE** (Maximum Calibration Error): $\displaystyle\max_b\big|\operatorname{acc}(B_b)-\operatorname{conf}(B_b)\big|$.
+- **ECE** (Expected Calibration Error): $\sum_b\frac{|B_b|}{N},\big|\operatorname{acc}(B_b)-\operatorname{conf}(B_b)\big|$.
+- **MCE** (Maximum Calibration Error): $\max_b\big|\operatorname{acc}(B_b)-\operatorname{conf}(B_b)\big|$.
 - **Brier score:** $\dfrac{1}{N}\sum_{i=1}^N\lVert y^{(i)}-p^{(i)}\rVert_2^2$
 
 Corresponding **reliability diagram** and **confidence histogram** are saved to `reports/`.
