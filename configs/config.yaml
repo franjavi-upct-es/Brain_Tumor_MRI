@@ -1,0 +1,56 @@
+seed: 42
+framework: "tensorflow/keras"
+data:
+  auto_split: true
+  root_dir: "data/train"
+  train_dir: "data/train"
+  val_dir: "data/val"
+  test_dir: "data/test"
+  image_size: 224
+  channels: 3
+  num_classes: 4
+  class_names:
+    - glioma
+    - meningioma
+    - no_tumor
+    - pituitary
+  valid_split: 0.2
+  shuffle: true
+  balance: true
+train:
+  batch_size: 32
+  epochs: 35
+  mixed_precision: true
+  lr: 0.001
+  optimizer: "adamw"
+  weight_decay: 0.01
+  freeze_backbone_epochs: 5
+  early_stopping_patience: 4
+  checkpoint_dir: "models/"
+  num_workers: 2
+  use_class_weights: true
+  use_cosine_decay: true
+augment:
+  random_flip: true
+  random_rotate: 0.05
+  random_zoom: 0.1
+  random_brightness: 0.1
+  random_contrast: 0.1
+  mixup_alpha: 0.0
+model:
+  name: "efficientnet_v2_b0"
+  pretrained: true
+  dropout: 0.25
+  pooling: "avg"
+log:
+  csv_log: "training_log.csv"
+  tensorboard_dir: "tb/"
+  save_confusion_matrix: true
+  save_classif_report: true
+inference:
+  tta: false
+  threshold: 0.5
+  use_calibration: true
+calibration:
+  enabled: true
+  max_iters: 200
