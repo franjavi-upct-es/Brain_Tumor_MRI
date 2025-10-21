@@ -2,7 +2,7 @@
 
 - Francisco Javier Mercader Martínez
 
-## Introduction
+## Introduction 
 
 This repository provides a **complete, modular, and reproducible framework** for brain tumor MRI classification using deep learning This pipeline transform an initial research notebook into a robust project structure with separated scripts for data loading, preprocessing, training, evaluation, and inference.
 
