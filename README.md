@@ -260,14 +260,15 @@ python src/train_kfold.py --config configs/config.yaml
 - **Balanced Accuracy:** 92.5%
 - **Macro F1-score:** 0.931
 - **Confusion Matrix:**
-  $$
+
+$$
   \begin{bmatrix}
   85 & 2 & 1 & 0\\
   3 & 78 & 1 & 0\\
   1 & 0 & 90 & 2\\
   0 & 1 & 2 & 88
   \end{bmatrix}
-  $$
+$$
 
 ### Visualizations
 
