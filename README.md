@@ -1,3 +1,5 @@
+[![Español](https://img.shields.io/badge/Language-Español-yellow.svg)](README.es.md)
+
 # Brain Tumor MRI Classification Framework
 
 - Francisco Javier Mercader Martínez
