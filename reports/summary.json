@@ -1,0 +1,14 @@
+{
+  "classes": [
+    "glioma",
+    "meningioma",
+    "no_tumor",
+    "pituitary"
+  ],
+  "temperature": 1.0,
+  "calibration": {
+    "ECE": 0.043374711285539345,
+    "MCE": 0.44091796875,
+    "BrierScore": 0.029427003115415573
+  }
+}

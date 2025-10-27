@@ -116,7 +116,7 @@ def main(cfg_path):
         tf.keras.callbacks.EarlyStopping(monitor="val_accuracy",
                                          patience=cfg["train"]["early_stopping_patience"],
                                          restore_best_weights=True),
-        tf.keras.callbacks.ReduceLROnPlateau(monitor="val_accuracy", patience=2, factor=0.5, min_lr=1e-6),
+        # tf.keras.callbacks.ReduceLROnPlateau(monitor="val_accuracy", patience=2, factor=0.5, min_lr=1e-6),
         tf.keras.callbacks.CSVLogger(cfg["log"]["csv_log"], append=False),
         tf.keras.callbacks.TensorBoard(log_dir=cfg["log"]["tensorboard_dir"]),
     ]
@@ -147,7 +147,7 @@ def main(cfg_path):
         history[k] = history1.history.get(k, []) + history2.history.get(k, [])
 
     # Save training curves
-    from .plots import save_training_curves
+    from plots import save_training_curves
     save_training_curves(history, out_dir="reports")
 
     print("Best val acc (stage 2):", max(history2.history.get("val_accuracy", [0])))
