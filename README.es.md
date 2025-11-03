@@ -298,12 +298,6 @@ A continuación se muestran figuras **generadas automáticamente** por `src/trai
 
     Las métricas escalares se guardan en `reports/calibration_metrics.json` con los campos: **ECE, MCE, BrierScore.** Un resumen útil se encuentra en `reports/summary.json` (incluye la temperatura aprendida `T`).
 
--   **Explicabilidad (Grad-CAM)**
-
-    Superposiciones (hasta 8 muestras) en `gradcam_samples/`. Ejemplo:
-
-    ![Ejemplo de Grad-CAM](gradcam_samples/sample_0_glioma.png)
-
 ## Características Clave
 
 -   **Frameworks:** TensorFlow/Keras (2.13+)

@@ -298,12 +298,6 @@ Below are figures **automatically generated** by `src/train.py` and `src/eval.py
 
   Scalar metrics metrics are saved to `reports/calibration_metrics.json` with fields: **ECE, MCE, BrierScore.** A handy summary is in `reports/summary.json` (includes the learned temperature `T`).
 
-- **Explainability (Grad-CAM)**
-
-  Overlays (up to 8 samples) in `gradcam_samples/`. Example:
-
-  ![Grad-CAM Example](gradcam_samples/sample_0_glioma.png)
-
 ## Key Features
 
 - **Frameworks:** TensorFlow/Keras (2.13+)
