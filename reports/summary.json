@@ -5,49 +5,10 @@
     "no_tumor",
     "pituitary"
   ],
-  "temperature": 1.2008923292160034,
+  "temperature": 1.604157567024231,
   "calibration": {
-    "ECE": 0.15144481993558115,
-    "MCE": 0.4799698539402174,
-    "BrierScore": 0.07113204151391983
-  },
-  "classification_report": {
-    "glioma": {
-      "precision": 0.7869415807560137,
-      "recall": 0.7633333333333333,
-      "f1-score": 0.7749576988155669,
-      "support": 300.0
-    },
-    "meningioma": {
-      "precision": 0.7247191011235955,
-      "recall": 0.4215686274509804,
-      "f1-score": 0.5330578512396694,
-      "support": 306.0
-    },
-    "no_tumor": {
-      "precision": 0.9236453201970444,
-      "recall": 0.9259259259259259,
-      "f1-score": 0.9247842170160296,
-      "support": 405.0
-    },
-    "pituitary": {
-      "precision": 0.6857798165137615,
-      "recall": 0.9966666666666667,
-      "f1-score": 0.8125,
-      "support": 300.0
-    },
-    "accuracy": 0.7871853546910755,
-    "macro avg": {
-      "precision": 0.7802714546476038,
-      "recall": 0.7768736383442265,
-      "f1-score": 0.7613249417678165,
-      "support": 1311.0
-    },
-    "weighted avg": {
-      "precision": 0.7915002431766253,
-      "recall": 0.7871853546910755,
-      "f1-score": 0.7733719450919152,
-      "support": 1311.0
-    }
+    "ECE": 0.047425866335787,
+    "MCE": 0.431640625,
+    "BrierScore": 0.02172270230948925
   }
 }

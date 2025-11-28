@@ -119,7 +119,8 @@ echo ""
 # Step 4: Training
 # ==========================================
 echo -e "${GREEN}[4/5] Starting training pipeline...${NC}"
-echo -e "${BLUE}This may take a while depending on your hardware.${NC}"
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/.venv/lib
+echo -e "${YELLOW}Configurada ruta de librerías GPU: .venv/lib${NC}"
 echo ""
 
 if [ -f "src/train.py" ]; then

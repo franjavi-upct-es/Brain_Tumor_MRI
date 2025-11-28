@@ -95,6 +95,21 @@ def main(cfg_path):
     set_mixed_precision(cfg["train"].get("mixed_precision", True))
 
     import tensorflow as tf
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print(f"\n[INFO] ✅ Entrenando con GPU: {len(gpus)} dispositivos encontrados.")
+        for gpu in gpus:
+            print(f"       - {gpu}")
+            # Opcional: Configurar crecimiento de memoria para evitar errores de OOM
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError as e:
+                print(e)
+    else:
+        print("\n[WARNING] ⚠️ GPU no detectada. El entrenamiento será lento en CPU.")
+
+    set_mixed_precision(cfg["train"].get("mixed_precision", True))
+
     train_ds, val_ds, test_ds, class_names, class_weights = get_datasets(cfg)
     num_classes = len(class_names)
     steps_per_epoch = max(1, tf.data.experimental.cardinality(train_ds).numpy())

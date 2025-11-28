@@ -1,5 +1,4 @@
-tensorflow
-# tensorflow-addons
+tf-nightly[and-cuda]
 tensorflow-probability
 numpy
 pandas
@@ -11,3 +10,4 @@ pyyaml
 matplotlib
 tensorboard
 seaborn
+kagglehub
