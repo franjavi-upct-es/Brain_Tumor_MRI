@@ -13,6 +13,9 @@ $ErrorActionPreference = "Stop"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $SCRIPT_DIR
 
+# Add project root to PYTHONPATH so Python can find the 'src' module
+$env:PYTHONPATH = "$SCRIPT_DIR;$env:PYTHONPATH"
+
 # Virtual environment settings
 $VENV_DIR = ".venv"
 $REQUIREMENTS_FILE = "requirements.txt"
@@ -133,18 +136,23 @@ Write-Green "[4/5] Starting training pipeline..."
 Write-Blue "This may take a while depending on your hardware."
 Write-Output ""
 
-if (Test-Path "src\train.py") {
-    python src\train.py --config $CONFIG_FILE
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-Green "✓ Training completed successfully"
+if (Test-Path "models\best.keras") {
+    Write-Green "✓ Model 'models\best.keras' already exists. Skipping base training."
+    Write-Yellow "   (Delete 'models' folder to retrain from scratch)"
+} else {
+    if (Test-Path "src\train.py") {
+        python src\train.py --config $CONFIG_FILE
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Green "✓ Training completed successfully"
+        } else {
+            Write-Red "✗ Training failed!"
+            exit 1
+        }
     } else {
-        Write-Red "✗ Training failed!"
+        Write-Red "Error: src\train.py not found!"
         exit 1
     }
-} else {
-    Write-Red "Error: src\train.py not found!"
-    exit 1
 }
 Write-Output ""
 

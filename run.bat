@@ -12,6 +12,9 @@ setlocal enabledelayedexpansion
 REM Get script directory
 cd /d "%~dp0"
 
+REM Add project root to PYTHONPATH so Python can find the 'src' module
+set PYTHONPATH=%CD%;%PYTHONPATH%
+
 REM Virtual environment settings
 set VENV_DIR=.venv
 set REQUIREMENTS_FILE=requirements.txt
@@ -115,18 +118,23 @@ echo [4/5] Starting training pipeline...
 echo This may take a while depending on your hardware.
 echo.
 
-if exist "src\train.py" (
-    python src\train.py --config "%CONFIG_FILE%"
-    
-    if errorlevel 1 (
-        echo [FAILED] Training failed!
-        exit /b 1
-    ) else (
-        echo [OK] Training completed successfully
-    )
+if exist "models\best.keras" (
+    echo [OK] Model 'models\best.keras' already exists. Skipping base training.
+    echo      (Delete 'models' folder to retrain from scratch)
 ) else (
-    echo Error: src\train.py not found!
-    exit /b 1
+    if exist "src\train.py" (
+        python src\train.py --config "%CONFIG_FILE%"
+        
+        if errorlevel 1 (
+            echo [FAILED] Training failed!
+            exit /b 1
+        ) else (
+            echo [OK] Training completed successfully
+        )
+    ) else (
+        echo Error: src\train.py not found!
+        exit /b 1
+    )
 )
 echo.
 
