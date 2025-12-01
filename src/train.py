@@ -7,9 +7,9 @@
 # Saves curves into 'reports/'.
 
 import argparse, os, json
-from utils import load_config, set_seed
-from data import get_datasets
-from model import create_model
+from src.utils import load_config, set_seed
+from src.data import get_datasets
+from src.model import create_model
 
 def build_optimizer(cfg, steps_per_epoch):
     """

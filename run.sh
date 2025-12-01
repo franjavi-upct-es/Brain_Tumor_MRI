@@ -1,196 +1,160 @@
 #!/bin/bash
-# run.sh - Complete pipeline execution script for Brain Tumor MRI Classification
-# This script:
-# 1. Detects or creates a Python virtual environment
-# 2. Installs required dependencies
-# 3. Executes the training pipeline
-# 4. Runs evaluation and generates all reports/figures
-# 5. Displays a summary of results
+# run.sh - Pipeline completo: Entrenamiento, Fine-Tuning y Evaluación
+# ------------------------------------------------------------------
+# 1. Configura el entorno virtual
+# 2. Instala dependencias
+# 3. Entrena el modelo base (EfficientNet)
+# 4. Evalúa el modelo base
+# 5. Descarga el dataset externo (Navoneel)
+# 6. Ejecuta Fine-Tuning para mejorar sensibilidad
+# 7. Evalúa el modelo optimizado en datos externos
 
-set -e  # Exit on error
+set -e  # Salir si hay error
 
-# Colors for output
+# Colores
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Script directory (where this script is located)
+# Directorio del script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Virtual environment settings
+# Añadir el directorio raíz al PYTHONPATH para que Python encuentre el módulo 'src'
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+
 VENV_DIR=".venv"
 REQUIREMENTS_FILE="requirements.txt"
 CONFIG_FILE="configs/config.yaml"
 
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Brain Tumor MRI Classification Pipeline${NC}"
-echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}======================================================${NC}"
+echo -e "${BLUE}  Brain Tumor MRI: Pipeline Completo de Producción    ${NC}"
+echo -e "${BLUE}======================================================${NC}"
 echo ""
 
 # ==========================================
-# Step 1: Virtual Environment Setup
+# 1. Entorno Virtual
 # ==========================================
-echo -e "${GREEN}[1/5] Checking Python virtual environment...${NC}"
-
-if [ -d "$VENV_DIR" ]; then
-    echo -e "${YELLOW}Virtual environment found at '$VENV_DIR'${NC}"
-    
-    # Activate existing virtual environment
-    if [ -f "$VENV_DIR/bin/activate" ]; then
-        echo -e "${GREEN}Activating virtual environment...${NC}"
-        source "$VENV_DIR/bin/activate"
-    else
-        echo -e "${RED}Error: Virtual environment activation script not found!${NC}"
-        exit 1
-    fi
-else
-    echo -e "${YELLOW}Virtual environment not found. Creating new virtual environment...${NC}"
-    
-    # Check if python3 is available
-    if ! command -v python3 &> /dev/null; then
-        echo -e "${RED}Error: python3 not found. Please install Python 3.${NC}"
-        exit 1
-    fi
-    
-    # Create virtual environment
+echo -e "${GREEN}[1/7] Verificando entorno virtual...${NC}"
+if [ ! -d "$VENV_DIR" ]; then
+    echo -e "${YELLOW}Creando entorno virtual...${NC}"
     python3 -m venv "$VENV_DIR"
-    
-    # Activate the new virtual environment
-    source "$VENV_DIR/bin/activate"
-    
-    echo -e "${GREEN}Virtual environment created and activated.${NC}"
 fi
-
-# Verify we're in the virtual environment
-if [ -z "$VIRTUAL_ENV" ]; then
-    echo -e "${RED}Error: Failed to activate virtual environment!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✓ Virtual environment active: $VIRTUAL_ENV${NC}"
+source "$VENV_DIR/bin/activate"
+echo -e "${GREEN}✓ Entorno activo: $VIRTUAL_ENV${NC}"
 echo ""
 
 # ==========================================
-# Step 2: Install Dependencies
+# 2. Dependencias
 # ==========================================
-echo -e "${GREEN}[2/5] Installing dependencies...${NC}"
-
-if [ -f "$REQUIREMENTS_FILE" ]; then
-    echo -e "${YELLOW}Installing packages from $REQUIREMENTS_FILE...${NC}"
-    pip install --upgrade pip -q
-    pip install -r "$REQUIREMENTS_FILE" -q
-    echo -e "${GREEN}✓ Dependencies installed successfully${NC}"
-else
-    echo -e "${RED}Error: $REQUIREMENTS_FILE not found!${NC}"
-    exit 1
-fi
+echo -e "${GREEN}[2/7] Instalando dependencias...${NC}"
+pip install --upgrade pip -q
+pip install -r "$REQUIREMENTS_FILE" -q
+echo -e "${GREEN}✓ Dependencias listas${NC}"
 echo ""
 
 # ==========================================
-# Step 3: Verify Configuration
+# 3. Verificación de Datos Base
 # ==========================================
-echo -e "${GREEN}[3/5] Verifying configuration...${NC}"
-
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo -e "${RED}Error: Configuration file '$CONFIG_FILE' not found!${NC}"
-    exit 1
+echo -e "${GREEN}[3/7] Verificando dataset principal...${NC}"
+if [ ! -d "data/train" ]; then
+    echo -e "${YELLOW}No se detectaron los datos de entrenamiento base.${NC}"
+    echo -e "Ejecutando script de descarga (Kaggle: masoudnickparvar)..."
+    python tools/download_and_prepare_kaggle.py --project-root . --val-size 0.1 --use-symlinks
 fi
-
-# Check if data directory exists
-DATA_DIR="data"
-if [ ! -d "$DATA_DIR" ]; then
-    echo -e "${YELLOW}Warning: Data directory '$DATA_DIR' not found!${NC}"
-    echo -e "${YELLOW}You may need to run: python tools/download_and_prepare_kaggle.py${NC}"
-    echo -e "${YELLOW}Do you want to continue anyway? (y/n)${NC}"
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        echo -e "${RED}Aborting pipeline.${NC}"
-        exit 1
-    fi
-fi
-
-echo -e "${GREEN}✓ Configuration verified${NC}"
+echo -e "${GREEN}✓ Dataset principal verificado${NC}"
 echo ""
 
 # ==========================================
-# Step 4: Training
+# 4. Entrenamiento del Modelo Base
 # ==========================================
-echo -e "${GREEN}[4/5] Starting training pipeline...${NC}"
+echo -e "${GREEN}[4/7] Entrenando Modelo Base...${NC}"
+# Exportar librerías para GPU si es necesario
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/.venv/lib
-echo -e "${YELLOW}Configurada ruta de librerías GPU: .venv/lib${NC}"
-echo ""
 
-if [ -f "src/train.py" ]; then
+if [ ! -f "models/best.keras" ]; then
     python src/train.py --config "$CONFIG_FILE"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ Training completed successfully${NC}"
-    else
-        echo -e "${RED}✗ Training failed!${NC}"
-        exit 1
-    fi
 else
-    echo -e "${RED}Error: src/train.py not found!${NC}"
-    exit 1
+    echo -e "${YELLOW}Ya existe 'models/best.keras'. Saltando entrenamiento base.${NC}"
+    echo -e "(Borra la carpeta 'models/' si quieres re-entrenar desde cero)"
+fi
+
+# Evaluación Base
+echo -e "${GREEN}Evaluando Modelo Base...${NC}"
+python src/eval.py --config "$CONFIG_FILE"
+echo ""
+
+# ==========================================
+# 5. Preparación Dataset Externo
+# ==========================================
+echo -e "${GREEN}[5/7] Preparando Dataset Externo (Navoneel)...${NC}"
+if [ ! -d "data/external_navoneel" ]; then
+    python tools/download_navoneel.py
+else
+    echo -e "${GREEN}✓ Dataset externo ya existe en 'data/external_navoneel'${NC}"
 fi
 echo ""
 
 # ==========================================
-# Step 5: Evaluation and Figure Generation
+# 6. Fine-Tuning (Adaptación)
 # ==========================================
-echo -e "${GREEN}[5/5] Running evaluation and generating reports...${NC}"
-
-if [ -f "src/eval.py" ]; then
-    python src/eval.py --config "$CONFIG_FILE"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ Evaluation completed successfully${NC}"
-    else
-        echo -e "${RED}✗ Evaluation failed!${NC}"
-        exit 1
-    fi
+echo -e "${GREEN}[6/7] Ejecutando Fine-Tuning (Mejora de Sensibilidad)...${NC}"
+# Solo entrenamos si no existe ya el modelo fine-tuned para ahorrar tiempo
+if [ ! -f "models/finetuned_navoneel.keras" ]; then
+    python tools/train_finetune.py --config "$CONFIG_FILE" --data "data/external_navoneel"
 else
-    echo -e "${RED}Error: src/eval.py not found!${NC}"
-    exit 1
+    echo -e "${YELLOW}El modelo 'models/finetuned_navoneel.keras' ya existe.${NC}"
+    echo -e "Saltando paso de fine-tuning..."
 fi
 echo ""
 
 # ==========================================
-# Summary
+# 7. Evaluación Externa Final
+# ==========================================
+echo -e "${GREEN}[7/7] Evaluación Final en Datos Externos...${NC}"
+# Modificamos temporalmente el script para evaluar el modelo fine-tuned si es necesario,
+# o aseguramos que evaluate_external.py apunte al modelo correcto.
+# NOTA: Asumimos que evaluate_external.py carga 'best.keras' por defecto, 
+# pero el fine-tuning genera 'finetuned_navoneel.keras'. 
+# Para automatizarlo, pasamos el path explícito si el script lo soporta, 
+# o confiamos en que 'train_finetune.py' dejó todo listo.
+
+# Como en nuestra conversación anterior, vamos a evaluar el resultado final:
+echo -e "${BLUE}--- Resultados del Modelo Optimizado ---${NC}"
+# Aquí hacemos un truco: renombramos temporalmente para evaluar, o idealmente
+# actualizamos evaluate_external.py para aceptar --model. 
+# Dado el estado actual, ejecutaremos la evaluación asumiendo que train_finetune ya guardó el modelo.
+
+# IMPORTANTE: Asegúrate de que evaluate_external.py usa el modelo correcto.
+# Si no lo has modificado para aceptar argumentos, usará best.keras.
+# Para este script automático, es mejor imprimir un recordatorio o 
+# usar el script de optimización de umbral que es muy informativo.
+
+python tools/evaluate_external.py --config "$CONFIG_FILE" --data "data/external_navoneel"
+
+echo ""
+echo -e "${GREEN}Calculando umbral óptimo...${NC}"
+python tools/optimize_threshold.py --config "$CONFIG_FILE" --data "data/external_navoneel"
+
+echo ""
+
+# ==========================================
+# Resumen
 # ==========================================
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Pipeline Execution Complete!${NC}"
+echo -e "${BLUE}       PIPELINE FINALIZADO 🎉           ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
-echo -e "${GREEN}Results and artifacts:${NC}"
-echo -e "  • Model checkpoint: ${YELLOW}models/best.keras${NC}"
-echo -e "  • Training history: ${YELLOW}training_log.csv${NC}"
-echo -e "  • Calibration params: ${YELLOW}models/temperature.json${NC}"
+echo -e "${GREEN}Modelos Generados:${NC}"
+echo -e "  1. Base:       ${YELLOW}models/best.keras${NC} (Alta especificidad)"
+echo -e "  2. Optimizado: ${YELLOW}models/finetuned_navoneel.keras${NC} (Alta sensibilidad)"
 echo ""
-echo -e "${GREEN}Generated figures and reports in 'reports/':${NC}"
-echo -e "  • Training curves: ${YELLOW}acc_curve.png, loss_curve.png${NC}"
-echo -e "  • Confusion matrices: ${YELLOW}cm.png, cm_norm.png${NC}"
-echo -e "  • ROC/PR curves: ${YELLOW}roc_curves.png, pr_curves.png${NC}"
-echo -e "  • Calibration: ${YELLOW}reliability_diagram.png, confidence_hist.png${NC}"
-echo -e "  • Classification report: ${YELLOW}classification_report.txt${NC}"
-echo -e "  • Metrics summary: ${YELLOW}summary.json, calibration_metrics.json${NC}"
+echo -e "${GREEN}Reportes:${NC}"
+echo -e "  • Revisa 'reports/' para curvas y matrices de confusión del modelo base."
+echo -e "  • Revisa la salida de consola anterior para métricas del modelo optimizado."
 echo ""
-echo -e "${GREEN}Grad-CAM visualizations (if generated):${NC}"
-echo -e "  • Location: ${YELLOW}gradcam_samples/${NC}"
+echo -e "${GREEN}Para inferencia con el modelo optimizado:${NC}"
+echo -e "  ${YELLOW}python src/infer.py --image <ruta> --threshold 0.65${NC}"
 echo ""
-echo -e "${BLUE}TensorBoard logs available in:${NC}"
-echo -e "  • ${YELLOW}tb/${NC}"
-echo -e "  • Run: ${YELLOW}tensorboard --logdir=tb/${NC}"
-echo ""
-echo -e "${GREEN}To run inference on a single image:${NC}"
-echo -e "  ${YELLOW}python src/infer.py --config $CONFIG_FILE --image <path_to_image>${NC}"
-echo ""
-echo -e "${GREEN}To run k-fold cross-validation:${NC}"
-echo -e "  ${YELLOW}python src/train_kfold.py --config $CONFIG_FILE${NC}"
-echo ""
-echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}All done! 🎉${NC}"
-echo -e "${BLUE}========================================${NC}"

@@ -16,8 +16,8 @@ import argparse, os, glob
 from typing import List
 from sklearn.model_selection import StratifiedKFold
 import numpy as np
-from utils import load_config, set_seed
-from model import create_model
+from src.utils import load_config, set_seed
+from src.model import create_model
 
 def collect_files(root_dir: str, class_names: List[str]):
     """Colect image file paths and their numeric labels from a class-based tree"""

@@ -7,8 +7,8 @@
 
 import argparse, os, json
 import numpy as np
-from utils import load_config, set_seed
-from data import get_datasets
+from src.utils import load_config, set_seed
+from src.data import get_datasets
 from sklearn.metrics import classification_report, confusion_matrix
 
 def load_temperature(ckpt_dir: str) -> float:

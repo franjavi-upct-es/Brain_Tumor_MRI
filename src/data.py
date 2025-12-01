@@ -18,7 +18,7 @@
 import os
 from typing import Dict
 
-from utils import walk_class_counts
+from src.utils import walk_class_counts
 
 def _get_preprocess_fn(model_name: str):
     """Return the appropriate Keras preprocess function for the chose backbone."""
