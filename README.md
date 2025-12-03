@@ -20,20 +20,6 @@ The goal is to ensure reproducibility, performance, and interpretability in the 
 - **RAM:** 8GB minimum, 16GB recommended
 - **Disk Space:** ~5GB for datasets and models
 
-### Kaggle API Configuration
-
-The dataset download scripts require Kaggle API credentials:
-
-1. Create a Kaggle account at [kaggle.com](https://www.kaggle.com)
-2. Go to Account Settings → API → Create New Token
-3. Place the downloaded `kaggle.json` in:
-   - **Linux/macOS:** `~/.kaggle/kaggle.json`
-   - **Windows:** `C:\Users\<username>\.kaggle\kaggle.json`
-4. Set permissions (Linux/macOS only):
-   ```bash
-   chmod 600 ~/.kaggle/kaggle.json
-   ```
-
 ## Theoretical Background
 
 ### Transfer Learning & Backbones

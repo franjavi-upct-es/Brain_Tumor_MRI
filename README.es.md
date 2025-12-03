@@ -20,20 +20,6 @@ El objetivo es garantizar la reproducibilidad, el rendimiento y la interpretabil
 - **RAM:** 8GB mínimo, 16GB recomendado
 - **Espacio en disco:** ~5GB para datasets y modelos
 
-### Configuración de la API de Kaggle
-
-Los scripts de descarga de datasets requieren credenciales de la API de Kaggle:
-
-1. Crea una cuenta en Kaggle en [kaggle.com](https://www.kaggle.com)
-2. Ve a Configuración de Cuenta → API → Crear Nuevo Token
-3. Coloca el archivo `kaggle.json` descargado en:
-   - **Linux/macOS:** `~/.kaggle/kaggle.json`
-   - **Windows:** `C:\Users\<usuario>\.kaggle\kaggle.json`
-4. Establece los permisos (solo Linux/macOS):
-   ```bash
-   chmod 600 ~/.kaggle/kaggle.json
-   ```
-
 ## Fundamento Teórico
 
 ### Aprendizaje por Transferencia (Transfer Learning)
