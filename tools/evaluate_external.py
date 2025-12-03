@@ -7,13 +7,13 @@ from pathlib import Path
 from tqdm import tqdm
 from sklearn.metrics import confusion_matrix, classification_report
 
-# Añadimos el directorio raíz al path para importa módulo del proyecto
+# Add root directory to path to import project modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import load_config
 
 
 def load_and_preprocess_image(path, img_size, preprocess_input):
-    """Carga y preprocesa una imagen para el modelo."""
+    """Load and preprocess an image for the model."""
     img = tf.io.read_file(path)
     img = tf.image.decode_image(img, channels=3, expand_animations=False)
     img = tf.image.resize(img, (img_size, img_size))
@@ -22,14 +22,14 @@ def load_and_preprocess_image(path, img_size, preprocess_input):
 
 
 def main(config_path, data_dir):
-    # Verificar que los datos existen
+    # Verify that data exists
     data_path = Path(data_dir)
     if not data_path.exists():
-        print(f"[ERROR] No se encuentra el directorio de datos: {data_path}")
-        print("Ejecuta primero: python tools/download_navoneel.py")
+        print(f"[ERROR] Data directory not found: {data_path}")
+        print("Run first: python tools/download_navoneel.py")
         return
 
-    # Cargar configuración y modelo
+    # Load configuration and model
     cfg = load_config(config_path)
     img_size = cfg["data"]["image_size"]
     class_names = cfg["data"]["class_names"]
@@ -37,38 +37,38 @@ def main(config_path, data_dir):
     try:
         no_tumor_idx = class_names.index("no_tumor")
     except ValueError:
-        print("[ERROR] La clase 'no_tumor' no está definida en tu config.yaml")
+        print("[ERROR] The 'no_tumor' class is not defined in your config.yaml")
         return
 
-    print(f"[INFO] Cargando modelo desde {cfg['train']['checkpoint_dir']}...")
+    print(f"[INFO] Loading model from {cfg['train']['checkpoint_dir']}...")
     model_path = os.path.join(cfg["train"]["checkpoint_dir"], "finetuned_navoneel.keras")
     model = tf.keras.models.load_model(model_path, compile=False)
 
-    # Preprocesamiento según backbone
+    # Preprocessing according to backbone
     if "v2" in cfg["model"]["name"]:
         preprocess_input = tf.keras.applications.efficientnet_v2.preprocess_input
     else:
         preprocess_input = tf.keras.applications.efficientnet.preprocess_input
 
-    # Recopilar imágenes
+    # Collect images
     images_paths = []
-    true_binary_labels = []  # 0 = Sano, 1 = Tumor
+    true_binary_labels = []  # 0 = Healthy, 1 = Tumor
 
-    # Cargar clase 'no' (Sanos) -> Etiqueta 0
+    # Load 'no' class (Healthy) -> Label 0
     for ext in ["*.jpg", "*.jpeg", "*.png"]:
         for p in (data_path / "no").glob(ext):
             images_paths.append(str(p))
             true_binary_labels.append(0)
 
-    # Cargar clase 'yes' (Tumor) -> Etiqueta 1
+    # Load 'yes' class (Tumor) -> Label 1
     for ext in ["*.jpg", "*.jpeg", "*.png"]:
         for p in (data_path / "yes").glob(ext):
             images_paths.append(str(p))
             true_binary_labels.append(1)
 
-    print(f"[INFO] Evaluando {len(images_paths)} imágenes de {data_path}...")
+    print(f"[INFO] Evaluating {len(images_paths)} images from {data_path}...")
 
-    # Inferencia
+    # Inference
     pred_binary_labels = []
     pred_tumor_types = []
 
@@ -78,7 +78,7 @@ def main(config_path, data_dir):
         logits = model.predict(img_tensor, verbose=0)
         pred_idx = np.argmax(logits[0])
 
-        # Mapeo Multicalse -> Binario
+        # Multiclass -> Binary mapping
         if pred_idx == no_tumor_idx:
             pred_binary_labels.append(0)
             pred_tumor_types.append("N/A")
@@ -86,28 +86,28 @@ def main(config_path, data_dir):
             pred_binary_labels.append(1)
             pred_tumor_types.append(class_names[pred_idx])
 
-    # Reportes
+    # Reports
     print("\n" + "=" * 40)
-    print("RESULTADOS: DATASET EXTERNO (Navoneel)")
+    print("RESULTS: EXTERNAL DATASET (Navoneel)")
     print("=" * 40)
 
-    print("\n--- Clasificación Binaria (Sano vs Tumor) ---")
+    print("\n--- Binary Classification (Healthy vs Tumor) ---")
     print(
         classification_report(
             true_binary_labels, pred_binary_labels, target_names=[
-                "Sano", "Tumor"]
+                "Healthy", "Tumor"]
         )
     )
 
     cm = confusion_matrix(true_binary_labels, pred_binary_labels)
-    print(f"Matriz de Confusión:\n{cm}")
-    print(f"TN (Sanos OK): {cm[0][0]} | FP (Falsas Alarmas): {cm[0][1]}")
+    print(f"Confusion Matrix:\n{cm}")
+    print(f"TN (Healthy OK): {cm[0][0]} | FP (False Alarms): {cm[0][1]}")
     print(
-        f"FN (Tumores No Detectados): {
-            cm[1][0]} | TN (Tumores Detectados): {cm[1][1]}"
+        f"FN (Undetected Tumors): {
+            cm[1][0]} | TP (Detected Tumors): {cm[1][1]}"
     )
 
-    print("\n--- Tipos de Tumor Predichos (en casos 'Yes') ---")
+    print("\n--- Predicted Tumor Types (in 'Yes' cases) ---")
     tumor_indices = [i for i, x in enumerate(true_binary_labels) if x == 1]
     from collections import Counter
 
@@ -121,14 +121,14 @@ def main(config_path, data_dir):
 
     missed = counts.get("N/A", 0)
     if missed > 0:
-        print(f"- No detectados: {missed} ({missed / total:.1%})")
+        print(f"- Not detected: {missed} ({missed / total:.1%})")
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/config.yaml")
     p.add_argument(
-        "--data", default="data/external_navoneel", help="Ruta al dataset externo"
+        "--data", default="data/external_navoneel", help="Path to external dataset"
     )
     args = p.parse_args()
 

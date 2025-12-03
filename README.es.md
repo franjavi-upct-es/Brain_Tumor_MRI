@@ -10,6 +10,30 @@ Este repositorio proporciona un **framework completo, modular y reproducible** p
 
 El objetivo es garantizar la reproducibilidad, el rendimiento y la interpretabilidad en el contexto de imágenes médicas. El framework soporta arquitecturas **EfficientNet y EfficientNetV2**, integra **aumento de datos, balanceo de clases, calibración por escalado de temperatura** y visualización con **Grad-CAM** para la explicabilidad.
 
+## Requisitos
+
+### Requisitos del Sistema
+
+- **Python:** 3.10 o superior
+- **SO:** Linux, macOS o Windows
+- **GPU:** GPU NVIDIA con soporte CUDA (recomendado para entrenamiento)
+- **RAM:** 8GB mínimo, 16GB recomendado
+- **Espacio en disco:** ~5GB para datasets y modelos
+
+### Configuración de la API de Kaggle
+
+Los scripts de descarga de datasets requieren credenciales de la API de Kaggle:
+
+1. Crea una cuenta en Kaggle en [kaggle.com](https://www.kaggle.com)
+2. Ve a Configuración de Cuenta → API → Crear Nuevo Token
+3. Coloca el archivo `kaggle.json` descargado en:
+   - **Linux/macOS:** `~/.kaggle/kaggle.json`
+   - **Windows:** `C:\Users\<usuario>\.kaggle\kaggle.json`
+4. Establece los permisos (solo Linux/macOS):
+   ```bash
+   chmod 600 ~/.kaggle/kaggle.json
+   ```
+
 ## Fundamento Teórico
 
 ### Aprendizaje por Transferencia (Transfer Learning)
@@ -98,6 +122,12 @@ $$
 L_{\text{Grad-CAM}}^c=\mathrm{ReLU}\left(\sum_k\alpha_kA^k\right).
 $$
 
+**Uso:** Las visualizaciones Grad-CAM se generan automáticamente durante la evaluación y se guardan en `reports/gradcam/`. También puedes generarlas durante la inferencia:
+
+```bash
+python src/infer.py --config configs/config.yaml --image ruta/a/imagen.jpg --gradcam
+```
+
 ### Evaluación Robusta
 
 Implementamos:
@@ -109,24 +139,50 @@ Implementamos:
 ## Estructura del Proyecto
 
 ```bash
-brain_tumor_mri_project/
+Brain_Tumor_MRI/
 ├── configs/
-│   └── config.yaml           # Parámetros de entrenamiento y modelo
-├── data/                     # Carpeta del dataset (train/val/test o raíz única)
-├── models/                   # Checkpoints y parámetros de calibración
-├── notebooks/
-│   └── Brain_Tumor_MRI.ipynb # Cuaderno original para exploración
-├── src/
-│   ├── utils.py              # Semilla, cargador de config, pesos de clase
-│   ├── data.py               # Carga y preprocesamiento de datos
-│   ├── model.py              # Definiciones de modelos
-│   ├── train.py              # Bucle de entrenamiento con calibración
-│   ├── eval.py               # Evaluación con informes y Grad-CAM
-│   ├── infer.py              # Inferencia para imágenes individuales
-│   ├── gradcam.py            # Utilidades de visualización Grad-CAM
-│   └── train_kfold.py        # Entrenamiento con validación cruzada K-Fold
-├── requirements.txt
-├── run.sh
+│   └── config.yaml               # Parámetros de entrenamiento y modelo
+├── data/                         # Carpeta del dataset
+│   ├── train/<clase>/*           # Imágenes de entrenamiento
+│   ├── val/<clase>/*             # Imágenes de validación
+│   ├── test/<clase>/*            # Imágenes de prueba
+│   └── external_navoneel/        # Dataset de validación externa
+├── models/                       # Checkpoints
+│   ├── best.keras                # Mejor modelo base
+│   └── finetuned_navoneel.keras  # Modelo fine-tuned
+├── reports/                      # Figuras y métricas generadas
+│   ├── acc_curve.png             # Curva de precisión de entrenamiento
+│   ├── loss_curve.png            # Curva de pérdida de entrenamiento
+│   ├── cm.png                    # Matriz de confusión
+│   ├── cm_norm.png               # Matriz de confusión normalizada
+│   ├── roc_curves.png            # Curvas ROC (One-vs-Rest)
+│   ├── pr_curves.png             # Curvas Precision-Recall
+│   ├── reliability_diagram.png  # Diagrama de fiabilidad de calibración
+│   ├── confidence_hist.png       # Histograma de confianza
+│   ├── calibration_metrics.json  # ECE, MCE, Brier Score
+│   ├── classification_report.txt # Métricas por clase
+│   ├── training_history.json     # Métricas de entrenamiento por época
+│   └── summary.json              # Resumen del modelo con temperatura
+├── tools/                        # Scripts de utilidad
+│   ├── download_and_prepare_kaggle.py  # Descargador del dataset principal
+│   ├── download_navoneel.py            # Dataset de validación externa
+│   ├── train_finetune.py               # Entrenamiento de adaptación de dominio
+│   ├── evaluate_external.py            # Lógica de pruebas externas
+│   └── optimize_threshold.py           # Ajuste de Sensibilidad/Especificidad
+├── src/                          # Módulos principales
+│   ├── utils.py                  # Configuración y utilidades
+│   ├── data.py                   # Carga de datos y aumento
+│   ├── model.py                  # Arquitectura del modelo
+│   ├── train.py                  # Bucle de entrenamiento
+│   ├── train_kfold.py            # Entrenamiento con validación cruzada K-Fold
+│   ├── eval.py                   # Evaluación y métricas
+│   ├── infer.py                  # Inferencia de imagen individual
+│   ├── gradcam.py                # Utilidades de visualización Grad-CAM
+│   └── plots.py                  # Utilidades de gráficos
+├── run.sh                        # Script del pipeline (Linux/macOS)
+├── run.bat                       # Script del pipeline (Windows CMD)
+├── run.ps1                       # Script del pipeline (Windows PowerShell)
+├── requirements.txt              # Dependencias de Python
 └── README.md
 ```
 
@@ -156,11 +212,34 @@ run.bat
 
 Estos scripts realizarán automáticamente:
 
--   Crear y activar un entorno virtual (si no existe).
--   Instalar todas las dependencias.
--   Ejecutar el entrenamiento con calibración de temperatura.
--   Ejecutar la evaluación y generar todos los informes y figuras.
--   Mostrar un resumen completo de los resultados.
+1. Configura el entorno de Python.
+2. Descarga el dataset principal ([MasoudNickparvar](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset))
+3. **Entrena** el modelo base multi-clase.
+4. **Evalúa** el modelo base en su conjunto de prueba.
+5. Descarga un **Dataset Externo** ([Navoneel](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)) para probar la generalización.
+6. Realiza **Fine-Tuning** usando el dataset externo para adaptar el modelo y mejorar la sensibilidad.
+7. **Evalúa** el modelo fine-tuned en los datos externos y calcula el **Umbral Óptimo** para balancear Falsos Positivos/Negativos.
+
+### Validación Externa y Resultados de Robustez
+
+Para probar la fiabilidad del modelo en un escenario del mundo real, lo evaluamos contra el **Dataset Navoneel** (no visto durante el entrenamiento inicial).
+
+1. La Brecha de Generalización
+
+    Inicialmente, el modelo base mostró alta especificidad (0 Falsos Positivos) pero baja sensibilidad en los nuevos datos, perdiendo $\sim30\%$ de los tumores. Este es un comportamiento "conservador" común en IA médica cuando se enfrenta a cambios de dominio.
+
+2. Fine-Tuning y Optimización
+
+    Aplicamos un proceso de **fine-tuning con máscara binaria** y **optimización de umbral**.
+
+| **Métrica**                | **Modelo Base** | **Modelo Optimizado (Umbral 0.65)** |
+| -------------------------- | --------------- | ----------------------------------- |
+| **Precisión (Accuracy)**   | 85%             | **84%**                             |
+| **Recall (Sensibilidad)**  | 70%             | **91%**                             |
+| **Falsos Negativos**       | 26 (Alto Riesgo)| **8 (Bajo Riesgo)**                 |
+| **Falsos Positivos**       | 0               | **20**                              |
+
+**Implicación Clínica:** El pipeline optimizado transformó exitosamente el modelo de un clasificador "conservador" a una **herramienta de screening altamente sensible**, capaz de detectar anomalías incluso en distribuciones de datos que no ha visto explícitamente antes, priorizando la seguridad del paciente (minimizando tumores no detectados).
 
 ### Configuración Manual
 
@@ -217,27 +296,44 @@ Clases soportadas por defecto: `glioma`, `meningioma`, `no_tumor`, `pituitary`.
 python src/train.py --config configs/config.yaml
 ```
 
-#### 4. Evaluar el Modelo
+#### 4. Validación Cruzada K-Fold (Opcional)
+
+Para una estimación de rendimiento más robusta con intervalos de confianza:
+
+```bash
+python src/train_kfold.py --config configs/config.yaml --folds 5
+```
+
+Esto genera métricas por fold y reporta la precisión media ± desviación estándar en todos los folds.
+
+#### 5. Fine-Tune con Datos Externos
+
+```bash
+# Descargar datos externos
+python tools/download_navoneel.py
+# Ejecutar entrenamiento de adaptación
+python tools/train_finetune.py --config configs/config.yaml --data data/external_navoneel
+```
+
+#### 6. Evaluar el Modelo
 
 ```bash
 python src/eval.py --config configs/config.yaml
 ```
 
 -   Genera un informe de clasificación y una matriz de confusión.
--   Genera muestras de Grad-CAM en `gradcam_samples/`.
+-   Genera muestras de Grad-CAM en `reports/gradcam/`.
 
-#### 5. Inferencia en una Sola Imagen
+#### 7. Inferencia con Umbral Clínico
 
-```bash
-python src/infer.py --config configs/config.yaml --image ruta/a/la/imagen.jpg
-```
-
--   Imprime la clase predicha y las probabilidades calibradas.
-
-#### 6. Validación Cruzada K-Fold (opcional)
+Usa el umbral optimizado (encontrado por `tools/optimize_threshold.py`, típicamente $\sim0.65$) para inferencia:
 
 ```bash
-python src/train_kfold.py --config configs/config.yaml
+# Inferencia básica
+python src/infer.py --config configs/config.yaml --image ruta/a/imagen.jpg --threshold 0.65
+
+# Con visualización Grad-CAM
+python src/infer.py --config configs/config.yaml --image ruta/a/imagen.jpg --threshold 0.65 --gradcam
 ```
 
 ## Resultados Experimentales
@@ -301,20 +397,45 @@ A continuación se muestran figuras **generadas automáticamente** por `src/trai
 ## Características Clave
 
 -   **Frameworks:** TensorFlow/Keras (2.13+)
-
 -   **Backbones:** EfficientNetB0–B7, EfficientNetV2 (por defecto: V2-B0)
-
 -   **Aumento de datos:** Volteo, rotación, zoom, brillo, contraste, MixUp
-
 -   **Manejo de desbalanceo de clases:** pesos de clase y balanceo
-
 -   **Calibración:** escalado de temperatura para probabilidades fiables
-
 -   **Explicabilidad:** mapas de calor Grad-CAM
-
 -   **Evaluación:** informes, matriz de confusión, K-Fold
-
 -   **Logging:** TensorBoard + CSVLogger
+
+## Solución de Problemas
+
+### ModuleNotFoundError: No module named 'src'
+
+Si encuentras este error al ejecutar scripts directamente con Python:
+
+```bash
+# Solución: Añade el directorio raíz del proyecto al PYTHONPATH
+export PYTHONPATH="/ruta/a/Brain_Tumor_MRI:$PYTHONPATH"
+python src/train.py
+```
+
+O usa los scripts proporcionados (`run.sh`, `run.bat`, `run.ps1`) que configuran esto automáticamente.
+
+### Problemas con el Entorno de Conda
+
+```bash
+# Elimina y recrea el entorno si está corrupto
+conda deactivate
+conda env remove -n brain_tumor_mri
+conda create -n brain_tumor_mri python=3.10 -y
+conda activate brain_tumor_mri
+pip install -r requirements.txt
+```
+
+### Errores de Memoria GPU
+
+Si te quedas sin memoria GPU, intenta:
+1. Reducir `batch_size` en `configs/config.yaml`
+2. Usar un backbone más pequeño (ej., `efficientnetv2-b0`)
+3. Habilitar crecimiento de memoria: `TF_FORCE_GPU_ALLOW_GROWTH=true`
 
 ## Mejoras Futuras
 
