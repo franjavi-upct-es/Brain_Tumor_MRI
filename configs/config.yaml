@@ -1,11 +1,16 @@
 seed: 42
 framework: "tensorflow/keras"
 data:
-  auto_split: true
-  root_dir: "data/train"
-  train_dir: "data/train"
-  val_dir: "data/val"
-  test_dir: "data/test"
+  auto_split: false
+
+  # Point to the cropped fodlers after running tools/preprocess_dataset.py
+  train_dir: "data/train_cropped"
+  val_dir: "data/val_cropped"
+  test_dir: "data/test_cropped"
+
+  # Fallback/Legacy options
+  root_dir: "data/train_cropped"
+
   image_size: 224
   channels: 3
   num_classes: 4
@@ -17,6 +22,7 @@ data:
   valid_split: 0.2
   shuffle: true
   balance: true
+
 train:
   batch_size: 32
   epochs: 35
@@ -30,6 +36,7 @@ train:
   num_workers: 2
   use_class_weights: true
   use_cosine_decay: true
+
 augment:
   random_flip: true
   random_rotate: 0.05
@@ -37,20 +44,25 @@ augment:
   random_brightness: 0.1
   random_contrast: 0.1
   mixup_alpha: 0.0
+
 model:
   name: "efficientnet_v2_b0"
   pretrained: true
   dropout: 0.25
   pooling: "avg"
+
 log:
   csv_log: "training_log.csv"
   tensorboard_dir: "tb/"
   save_confusion_matrix: true
   save_classif_report: true
+
 inference:
   tta: false
   threshold: 0.5
   use_calibration: true
+
 calibration:
   enabled: true
   max_iters: 200
+

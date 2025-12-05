@@ -1,15 +1,16 @@
 #!/bin/bash
-# run.sh - Complete Pipeline: Training, Fine-Tuning and Evaluation
+# run.sh - Complete Pipeline: Data Prep, Training, Fine-Tuning, and Evaluation
 # ------------------------------------------------------------------
 # 1. Configure virtual environment
 # 2. Install dependencies
-# 3. Train base model (EfficientNet)
-# 4. Evaluate base model
-# 5. Download external dataset (Navoneel)
-# 6. Execute Fine-Tuning to improve sensitivity
-# 7. Evaluate optimized model on external data
+# 3. Download & Merge ALL datasets (Unified Script)
+# 4. Preprocess Images (Skull Stripping)
+# 5. Train base model (EfficientNetV2 on Cropped Data)
+# 6. Evaluate base model
+# 7. Execute Fine-Tuning on External Data (Cropped)
+# 8. Evaluate optimized model
 
-set -e  # Exit on error
+set -e # Exit on error
 
 # Colors
 GREEN='\033[0;32m'
@@ -22,7 +23,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Add root directory to PYTHONPATH so Python can find 'src' module
+# Add root directory to PYTHONPATH
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 
 VENV_DIR=".venv"
@@ -37,10 +38,10 @@ echo ""
 # ==========================================
 # 1. Virtual Environment
 # ==========================================
-echo -e "${GREEN}[1/7] Checking virtual environment...${NC}"
+echo -e "${GREEN}[1/8] Checking virtual environment...${NC}"
 if [ ! -d "$VENV_DIR" ]; then
-    echo -e "${YELLOW}Creating virtual environment...${NC}"
-    python3 -m venv "$VENV_DIR"
+  echo -e "${YELLOW}Creating virtual environment...${NC}"
+  python3 -m venv "$VENV_DIR"
 fi
 source "$VENV_DIR/bin/activate"
 echo -e "${GREEN}✓ Active environment: $VIRTUAL_ENV${NC}"
@@ -49,36 +50,64 @@ echo ""
 # ==========================================
 # 2. Dependencies
 # ==========================================
-echo -e "${GREEN}[2/7] Installing dependencies...${NC}"
+echo -e "${GREEN}[2/8] Installing dependencies...${NC}"
 pip install --upgrade pip -q
 pip install -r "$REQUIREMENTS_FILE" -q
 echo -e "${GREEN}✓ Dependencies ready${NC}"
 echo ""
 
 # ==========================================
-# 3. Base Data Verification
+# 3. Unified Data Download
 # ==========================================
-echo -e "${GREEN}[3/7] Verifying main dataset...${NC}"
+echo -e "${GREEN}[3/8] Downloading and Merging Datasets...${NC}"
+# We check if the raw 'data/train' exists. If not, we assume we need to download.
 if [ ! -d "data/train" ]; then
-    echo -e "${YELLOW}Base training data not detected.${NC}"
-    echo -e "Running download script (Kaggle: masoudnickparvar)..."
-    python tools/download_and_prepare_kaggle.py --project-root . --val-size 0.1 --use-symlinks
+  echo -e "${YELLOW}Raw data not found. Running master download script...${NC}"
+  python tools/download_data.py --project_root .
+else
+  echo -e "${GREEN}✓ Raw data found in 'data/train'. Skipping download.${NC}"
 fi
-echo -e "${GREEN}✓ Main dataset verified${NC}"
 echo ""
 
 # ==========================================
-# 4. Base Model Training
+# 4. Data Preprocessing (Skull Stripping)
 # ==========================================
-echo -e "${GREEN}[4/7] Training Base Model...${NC}"
-# Export libraries for GPU if needed
+echo -e "${GREEN}[4/8] Preprocessing (Skull Stripping)...${NC}"
+
+# Helper function to preprocess a split if the destination doesn't exist
+preprocess_split() {
+  SRC=$1
+  DST=$2
+  if [ ! -d "$DST" ]; then
+    echo -e "   -> Processing $SRC to $DST..."
+    python tools/preprocess_dataset.py --input_dir "$SRC" --output_dir "$DST"
+  else
+    echo -e "   -> $DST already exists. Skipping."
+  fi
+}
+
+# Preprocess Main Splits (Masoud + Pradeep)
+preprocess_split "data/train" "data/train_cropped"
+preprocess_split "data/val" "data/val_cropped"
+preprocess_split "data/test" "data/test_cropped"
+
+# Preprocess External Dataset (Navoneel) for consistent Fine-Tuning
+preprocess_split "data/external_navoneel" "data/external_navoneel_cropped"
+
+echo -e "${GREEN}✓ Data preprocessing completed.${NC}"
+echo ""
+
+# ==========================================
+# 5. Base Model Training
+# ==========================================
+echo -e "${GREEN}[5/8] Training Base Model (EfficientNetV2)...${NC}"
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/.venv/lib
+# Ensure config points to 'data/train_cropped' before running this!
 
 if [ ! -f "models/best.keras" ]; then
-    python src/train.py --config "$CONFIG_FILE"
+  python src/train.py --config "$CONFIG_FILE"
 else
-    echo -e "${YELLOW}'models/best.keras' already exists. Skipping base training.${NC}"
-    echo -e "(Delete 'models/' folder if you want to retrain from scratch)"
+  echo -e "${YELLOW}'models/best.keras' already exists. Skipping base training.${NC}"
 fi
 
 # Base Evaluation
@@ -87,56 +116,31 @@ python src/eval.py --config "$CONFIG_FILE"
 echo ""
 
 # ==========================================
-# 5. External Dataset Preparation
-# ==========================================
-echo -e "${GREEN}[5/7] Preparing External Dataset (Navoneel)...${NC}"
-if [ ! -d "data/external_navoneel" ]; then
-    python tools/download_navoneel.py
-else
-    echo -e "${GREEN}✓ External dataset already exists at 'data/external_navoneel'${NC}"
-fi
-echo ""
-
-# ==========================================
 # 6. Fine-Tuning (Adaptation)
 # ==========================================
-echo -e "${GREEN}[6/7] Executing Fine-Tuning (Sensitivity Improvement)...${NC}"
-# Only train if fine-tuned model doesn't exist to save time
+echo -e "${GREEN}[6/8] Executing Fine-Tuning (Sensitivity Improvement)...${NC}"
+# We use the CROPPED external dataset to match the domain of the base model
+EXTERNAL_DATA_CROPPED="data/external_navoneel_cropped"
+
 if [ ! -f "models/finetuned_navoneel.keras" ]; then
-    python tools/train_finetune.py --config "$CONFIG_FILE" --data "data/external_navoneel"
+  python tools/train_finetune.py --config "$CONFIG_FILE" --data "$EXTERNAL_DATA_CROPPED"
 else
-    echo -e "${YELLOW}Model 'models/finetuned_navoneel.keras' already exists.${NC}"
-    echo -e "Skipping fine-tuning step..."
+  echo -e "${YELLOW}Model 'models/finetuned_navoneel.keras' already exists.${NC}"
+  echo -e "Skipping fine-tuning step..."
 fi
 echo ""
 
 # ==========================================
 # 7. Final External Evaluation
 # ==========================================
-echo -e "${GREEN}[7/7] Final Evaluation on External Data...${NC}"
-# Temporarily modify the script to evaluate the fine-tuned model if necessary,
-# or ensure that evaluate_external.py points to the correct model.
-# NOTE: We assume evaluate_external.py loads 'best.keras' by default,
-# but fine-tuning generates 'finetuned_navoneel.keras'.
-# To automate it, we pass the explicit path if the script supports it,
-# or trust that 'train_finetune.py' left everything ready.
+echo -e "${GREEN}[7/8] Final Evaluation on External Data...${NC}"
 
-# As in our previous conversation, we will evaluate the final result:
-echo -e "${BLUE}--- Optimized Model Results ---${NC}"
-# Here we do a trick: temporarily rename for evaluation, or ideally
-# update evaluate_external.py to accept --model.
-# Given the current state, we'll run the evaluation assuming train_finetune already saved the model.
-
-# IMPORTANT: Make sure evaluate_external.py uses the correct model.
-# If you haven't modified it to accept arguments, it will use best.keras.
-# For this automatic script, it's better to print a reminder or
-# use the threshold optimization script which is very informative.
-
-python tools/evaluate_external.py --config "$CONFIG_FILE" --data "data/external_navoneel"
+# Evaluate the Fine-Tuned model on the External Cropped data
+python tools/evaluate_external.py --config "$CONFIG_FILE" --data "$EXTERNAL_DATA_CROPPED"
 
 echo ""
 echo -e "${GREEN}Calculating optimal threshold...${NC}"
-python tools/optimize_threshold.py --config "$CONFIG_FILE" --data "data/external_navoneel"
+python tools/optimize_threshold.py --config "$CONFIG_FILE" --data "$EXTERNAL_DATA_CROPPED"
 
 echo ""
 
@@ -148,13 +152,9 @@ echo -e "${BLUE}       PIPELINE COMPLETED 🎉           ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo -e "${GREEN}Generated Models:${NC}"
-echo -e "  1. Base:       ${YELLOW}models/best.keras${NC} (High specificity)"
-echo -e "  2. Optimized: ${YELLOW}models/finetuned_navoneel.keras${NC} (High sensitivity)"
+echo -e "  1. Base:      ${YELLOW}models/best.keras${NC} (Cropped data)"
+echo -e "  2. Optimized: ${YELLOW}models/finetuned_navoneel.keras${NC} (Fine-tuned)"
 echo ""
-echo -e "${GREEN}Reports:${NC}"
-echo -e "  • Check 'reports/' for curves and confusion matrices of base model."
-echo -e "  • Check console output above for optimized model metrics."
-echo ""
-echo -e "${GREEN}For inference with optimized model:${NC}"
-echo -e "  ${YELLOW}python src/infer.py --image <path> --threshold 0.65${NC}"
+echo -e "${GREEN}Note:${NC}"
+echo -e "  Used 'data/train_cropped' for training and 'data/external_navoneel_cropped' for fine-tuning."
 echo ""
