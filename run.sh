@@ -70,6 +70,18 @@ pip install scipy scikit-image -q
 echo -e "${GREEN}✓ Dependencies ready${NC}"
 echo ""
 
+# 1. Dynamically link EACH 'lib' folder inside 'nvidia/' in site-packages
+# This finds: cudnn, cublas, cuda_runtime, cufft, curand, cusolver, cusparse, nccl, etc.
+export LD_LIBRARY_PATH=$(python -c 'import os, site; P=site.getsitepackages()[0]+"/nvidia"; print(":".join([os.path.join(P, d, "lib") for d in os.listdir(P) if os.path.isdir(os.path.join(P, d, "lib"))]))'):$LD_LIBRARY_PATH
+
+# 2. Dynamically link EACH 'bin' folder (for ptxas, nvlink, etc.)
+export PATH=$(python -c 'import os, site; P=site.getsitepackages()[0]+"/nvidia"; print(":".join([os.path.join(P, d, "bin") for d in os.listdir(P) if os.path.isdir(os.path.join(P, d, "bin"))]))'):$PATH
+
+# 3. Disable oneDNN logs
+export TF_ENABLE_ONEDNN_OPTS=0
+
+echo "  -> NVIDIA libraries and binaries linked to the environment."
+
 # ==========================================
 # 3. Data Download
 # ==========================================
