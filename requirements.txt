@@ -11,3 +11,4 @@ matplotlib
 tensorboard
 seaborn
 kagglehub
+scikit-image

@@ -1,15 +1,17 @@
 seed: 42
 framework: "tensorflow/keras"
+
+# ==================== DATA CONFIGURATION ====================
 data:
   auto_split: false
 
   # Point to the cropped fodlers after running tools/preprocess_dataset.py
-  train_dir: "data/train_cropped"
-  val_dir: "data/val_cropped"
-  test_dir: "data/test_cropped"
+  train_dir: "data/train_medical"
+  val_dir: "data/val_medical"
+  test_dir: "data/test_medical"
 
   # Fallback/Legacy options
-  root_dir: "data/train_cropped"
+  root_dir: "data/train_medical"
 
   image_size: 224
   channels: 3
@@ -23,6 +25,41 @@ data:
   shuffle: true
   balance: true
 
+# ==================== PREPROCESSING CONFIGURATION ====================
+preprocessing:
+  # Choose preprocessing mode: "legacy", "medical", "hybrid"
+  # - legacy: Simple skull stripping (original method)
+  # - medical: Full medical-grade pipeline (N4 + BET + Nyúl + CLAHE)
+  # - hybrid: Medical for main data, legacy external (compatiblity)
+  mode: "medical"
+
+  # Medical-grade specific settings
+  medical:
+    # Bias field correction (CRITICAL - should always be True)
+    apply_n4_bias_correction: true
+
+    # Denoising method
+    apply_rician_denoising: true # Set false to use anisotropic diffusion instead
+
+    # Skull stripping mehtod: "bet" (gold standard), "zscore", "histogram_matching"
+    # CRITICAL for cross-scanner generalization
+    intensity_normalization: "nyul"
+
+    # Enhancement method: "clahe" (standard), "anisotropic_diffusion", "unsharp_mask"
+    enhance_method: "clahe"
+
+    # Save preprocessing metadata for analysis
+    save_metadata: true
+
+    # Qualitu control - filter low-quality images
+    quality_filter: false # Set true to skip problematic images
+
+  # Legacy preprocessing (backward compatiblity)
+  legacy:
+    simple_crop: true
+    padding: 0
+
+# ==================== TRAINING CONFIGURATION ====================
 train:
   batch_size: 32
   epochs: 35
@@ -37,32 +74,55 @@ train:
   use_class_weights: true
   use_cosine_decay: true
 
+# ==================== AUGMENTATION CONFIGURATION ====================
 augment:
   random_flip: true
   random_rotate: 0.05
   random_zoom: 0.1
-  random_brightness: 0.1
-  random_contrast: 0.1
+  random_brightness: 0.1 # Reduced since medical preprocessing already enhances
+  random_contrast: 0.1 # Reduced since CLAHE is applied
   mixup_alpha: 0.0
 
+  # Advanced augmentation (from LGG notebook)
+  # Enable for more aggressive training
+  advanced:
+    enable: false
+    elastic_transform: false
+    grid_distortion: false
+    optical_distortion: false
+
+# ==================== MODEL CONFIGURATION ====================
 model:
   name: "efficientnet_v2_b0"
   pretrained: true
   dropout: 0.25
   pooling: "avg"
 
+# ==================== LOGGING CONFIGURATION ====================
 log:
   csv_log: "training_log.csv"
   tensorboard_dir: "tb/"
   save_confusion_matrix: true
   save_classif_report: true
 
+# ==================== INFERENCE CONFIGURATION ====================
 inference:
   tta: false
   threshold: 0.5
   use_calibration: true
 
+# ==================== CALIBRATION CONFIGURATION ====================
 calibration:
   enabled: true
   max_iters: 200
 
+# ==================== PIPELINE CONTROL ====================
+pipeline:
+  # Skip preprocessing if output directories already exist
+  skip_existing_preprocessing: true
+
+  # Use different preprocessing for different datasets
+  dataset_specific_preprocessing:
+    main: "medical" # Masoud + Pradeep
+    external: "medical" # Navoneel (important: use same as training)
+    lgg: "medical" # LGG segmentation data
