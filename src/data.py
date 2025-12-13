@@ -20,8 +20,18 @@ from typing import Dict
 
 from src.utils import walk_class_counts
 
-# NOTE: Preprocessing and augmentation functions are now in model.py
-# to avoid duplicating work and maximize GPU utilization.
+# Preprocessing function - exported for use by other modules (e.g., train_finetune.py)
+def _get_preprocess_fn(model_name: str):
+    """Return the appropriate Keras preprocess function for the chosen backbone."""
+    import tensorflow as tf
+    name = (model_name or "").lower()
+    if "v2" in name:
+        return tf.keras.applications.efficientnet_v2.preprocess_input
+    else:
+        return tf.keras.applications.efficientnet.preprocess_input
+
+# NOTE: Augmentation is done inside the model (model.py) for main training.
+# This function is kept for external tools that need preprocessing.
 
 def get_datasets(cfg: Dict):
     """
