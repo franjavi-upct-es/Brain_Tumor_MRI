@@ -1,4 +1,6 @@
 tf-nightly[and-cuda]
+pandas
+wandb
 tensorflow-probability
 numpy
 pandas

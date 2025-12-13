@@ -30,11 +30,11 @@ def _process_single_legacy(args):
     """Helper function for processing a single image in legacy mode."""
     src_file, input_path, output_path = args
     from src.imgproc import crop_brain_contour
-    
+
     try:
         rel_path = src_file.relative_to(input_path)
         dest_file = output_path / rel_path
-        
+
         # Check if already exists to skip efficiently if needed
         # if dest_file.exists(): return True
 
@@ -61,27 +61,33 @@ def preprocess_legacy(input_dir: str, output_dir: str):
     files = [p for p in input_path.rglob("*") if p.suffix.lower() in valid_exts]
 
     print(f"[INFO] Legacy preprocessing: {len(files)} images")
-    
+
     # Determine CPUs
-    num_workers = max(1, multiprocessing.cpu_count() - 1) # Leave 1 core free
+    num_workers = max(1, multiprocessing.cpu_count() - 1)  # Leave 1 core free
     print(f"[INFO] Using {num_workers} parallel workers.")
 
     success = 0
     failed_log = []
 
     # Prepare arguments for map
-    # We pass paths as strings or Path objects. 
+    # We pass paths as strings or Path objects.
     # Note: Objects passed to workers must be picklable.
     tasks = [(f, input_path, output_path) for f in files]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-        results = list(tqdm(executor.map(_process_single_legacy, tasks), total=len(tasks), desc="Legacy (Parallel)"))
+        results = list(
+            tqdm(
+                executor.map(_process_single_legacy, tasks),
+                total=len(tasks),
+                desc="Legacy (Parallel)",
+            )
+        )
 
     for res in results:
         if res is True:
             success += 1
         elif res is False:
-            pass # Just didn't detect contour/crop
+            pass  # Just didn't detect contour/crop
         else:
             # It's an error string
             failed_log.append(res)
@@ -98,19 +104,19 @@ def preprocess_legacy(input_dir: str, output_dir: str):
 def _process_single_medical(args):
     """Helper function for medical preprocessing worker."""
     src_file, input_path, output_path, config_params = args
-    
+
     # Re-import inside process to avoid pickling issues with cv2 objects if any
     from tools.mri_specific_preprocessing import MRIPreprocessor
     import cv2
     import json
-    
+
     # Initialize preprocessor inside the worker process
     # This creates a new instance per process, which is safe
     preprocessor = MRIPreprocessor(**config_params["init_args"])
-    
+
     save_metadata = config_params["save_metadata"]
     quality_filter = config_params["quality_filter"]
-    
+
     try:
         img = cv2.imread(str(src_file))
         if img is None:
@@ -140,13 +146,15 @@ def _process_single_medical(args):
             meta_serializable = {
                 "source_file": str(src_file),
                 "stages": metadata.get("stages", {}),
-                "quality_metrics": {k: float(v) for k, v in metadata.get("quality_metrics", {}).items()},
+                "quality_metrics": {
+                    k: float(v) for k, v in metadata.get("quality_metrics", {}).items()
+                },
             }
             with open(meta_file, "w") as f:
                 json.dump(meta_serializable, f, indent=2)
 
         return "success"
-        
+
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -163,41 +171,57 @@ def preprocess_medical(input_dir: str, output_dir: str, config: dict):
     files = [p for p in input_path.rglob("*") if p.suffix.lower() in valid_exts]
 
     medical_config = config.get("preprocessing", {}).get("medical", {})
-    
+
     print(f"[INFO] Medical-grade preprocessing: {len(files)} images")
-    print(f"[CONFIG] Bias correction: {medical_config.get('apply_n4_bias_correction', True)}")
+    print(
+        f"[CONFIG] Bias correction: {
+            medical_config.get('apply_n4_bias_correction', True)
+        }"
+    )
     print(f"[CONFIG] Skull strip: {medical_config.get('skull_strip_method', 'bet')}")
-    print(f"[CONFIG] Normalization: {medical_config.get('intensity_normalization', 'nyul')}")
-    
+    print(
+        f"[CONFIG] Normalization: {
+            medical_config.get('intensity_normalization', 'nyul')
+        }"
+    )
+
     # Prepare configuration dictionary to pass to workers
     # We don't pass the class instance, just the args to init it
     config_params = {
         "init_args": {
             "target_size": (config["data"]["image_size"], config["data"]["image_size"]),
-            "apply_n4_bias_correction": medical_config.get("apply_n4_bias_correction", True),
-            "apply_rician_denoising": medical_config.get("apply_rician_denoising", True),
+            "apply_n4_bias_correction": medical_config.get(
+                "apply_n4_bias_correction", True
+            ),
+            "apply_rician_denoising": medical_config.get(
+                "apply_rician_denoising", True
+            ),
             "skull_strip_method": medical_config.get("skull_strip_method", "bet"),
-            "intensity_normalization": medical_config.get("intensity_normalization", "nyul"),
+            "intensity_normalization": medical_config.get(
+                "intensity_normalization", "nyul"
+            ),
             "enhance_method": medical_config.get("enhance_method", "clahe"),
         },
         "save_metadata": medical_config.get("save_metadata", False),
-        "quality_filter": medical_config.get("quality_filter", False)
+        "quality_filter": medical_config.get("quality_filter", False),
     }
 
-    stats = {
-        "total": len(files),
-        "processed": 0,
-        "failed": 0,
-        "quality_filtered": 0
-    }
-    
-    num_workers = max(1, multiprocessing.cpu_count() - 2) # Leave 2 cores free for system
+    stats = {"total": len(files), "processed": 0, "failed": 0, "quality_filtered": 0}
+
+    # Leave 2 cores free for system
+    num_workers = max(1, multiprocessing.cpu_count() - 2)
     print(f"[INFO] Using {num_workers} parallel workers for heavy processing.")
 
     tasks = [(f, input_path, output_path, config_params) for f in files]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-        results = list(tqdm(executor.map(_process_single_medical, tasks), total=len(tasks), desc="Medical (Parallel)"))
+        results = list(
+            tqdm(
+                executor.map(_process_single_medical, tasks),
+                total=len(tasks),
+                desc="Medical (Parallel)",
+            )
+        )
 
     for res in results:
         if res == "success":
@@ -234,7 +258,9 @@ def main():
     )
     parser.add_argument("--input_dir", required=True, help="Source directory")
     parser.add_argument("--output_dir", required=True, help="Destination directory")
-    parser.add_argument("--config", default="configs/config.yaml", help="Path to config")
+    parser.add_argument(
+        "--config", default="configs/config.yaml", help="Path to config"
+    )
     parser.add_argument("--mode", choices=["auto", "legacy", "medical"], default="auto")
     parser.add_argument("--force", action="store_true", help="Force reprocessing")
 
@@ -277,5 +303,5 @@ def main():
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn', force=True)
+    multiprocessing.set_start_method("spawn", force=True)
     main()
