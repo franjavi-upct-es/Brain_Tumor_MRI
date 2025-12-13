@@ -153,7 +153,7 @@ When adapting to an external binary dataset (Tumor/No Tumor) without losing mult
 **Custom Binary Adaptation Loss:**
 
 $$
-\mathcal{L}_{\text{hybrid}}(y_{\text{binary}}, z) = \text{BCE}\left(1 - y_{\text{binary}}, \sigma(z_{\text{no\_tumor}})\right)
+\mathcal{L}\_{\text{hybrid}}(y\_{\text{binary}}, z) = \text{BCE}\left(1 - y\_{\text{binary}}, \sigma(z_{\text{no\_tumor}})\right)
 $$
 
 where $y_{\text{binary}} \in \{0,1\}$ (0=Healthy, 1=Tumor) and $z_{\text{no\_tumor}}$ is the logit for the "no tumor" class.
