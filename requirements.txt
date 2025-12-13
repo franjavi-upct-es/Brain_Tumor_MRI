@@ -14,3 +14,4 @@ tensorboard
 seaborn
 kagglehub
 scikit-image
+jupyter
