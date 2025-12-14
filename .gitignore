@@ -5,5 +5,4 @@ models
 tb
 __pycache__
 *.csv
-notebooks
 wandb

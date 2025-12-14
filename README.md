@@ -503,6 +503,27 @@ Below are figures **automatically generated** by `src/train.py` and `src/eval.py
 
 Scalar calibration metrics are saved to `reports/calibration_metrics.json` with fields: **ECE, MCE, BrierScore.** A comprehensive summary is available in `reports/summary.json` (includes the learned temperature $T$).
 
+### Error Analysis
+
+Comprehensive error analysis reveals systematic patterns in model failures:
+
+![Error Dashboard](reports/error_comparison_dashboard.png)
+
+**Key Findings:**
+- Error rate: 1.08% on test set (15 out of 1,392 images)
+- Most confused classes: Meningioma ↔ Glioma (5 cases)
+- 40% of errors show high confidence (>80%), indicating calibration opportunities
+- Primary failure mode: Small tumors with low contrast
+
+![Error Gallery](reports/error_gallery.png)
+
+**Improvement Roadmap Based on Analysis:**
+1. Implement Focal Loss to handle hard examples (Meningioma class)
+2. Increase data augmentation for underrepresented morphologies
+3. Add Test Time Augmentation (TTA) for ensemble robustness
+4. Apply more aggressive Label Smoothing (ε=0.1) to reduce overconfidence
+
+Full analysis available in `notebooks/error_analysis.ipynb`.
 ---
 
 ## Experiment Tracking

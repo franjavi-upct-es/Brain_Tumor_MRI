@@ -1,0 +1,12 @@
+{
+  "total_errors": 44,
+  "mean_confidence": 0.9374112215909091,
+  "median_confidence": 0.9921875,
+  "high_confidence_errors": 42,
+  "errors_by_class": {
+    "Tumor": 44
+  },
+  "most_common_confusions": {
+    "Tumor \u2192 Healthy": 44
+  }
+}
