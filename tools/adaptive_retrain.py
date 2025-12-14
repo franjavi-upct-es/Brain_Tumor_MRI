@@ -111,7 +111,7 @@ def train_with_focal_loss(cfg, use_label_smoothing=True):
     model = create_model(cfg, num_classes)
 
     # Load base weights as starting point (transfer learning from previous training)
-    base_model_path = os.path.join(cfg["train"]["checkpoint_dir"], "best.keras")
+    base_model_path = os.path.join(cfg["train"]["checkpoint_dir"], "finetuned_navoneel.keras")
     if os.path.exists(base_model_path):
         print(f"[INFO] Loading base weights from: {base_model_path}")
         base_model = tf.keras.models.load_model(base_model_path, compile=False)
@@ -120,20 +120,20 @@ def train_with_focal_loss(cfg, use_label_smoothing=True):
 
     # Configure Focal Loss
     focal_loss = FocalLoss(
-        alpha=0.75,  # Weight for positive class
-        gamma=2.5,  # Focusing parameter (higher = more focus on hard examples)
+        alpha=0.25,  # Weight for positive class
+        gamma=2.0,  # Focusing parameter (higher = more focus on hard examples)
         from_logits=True,
         label_smoothing=0.1 if use_label_smoothing else 0.0,
     )
 
     print(f"\n[CONFIG] Focal Loss Parameters:")
-    print(f"  α (alpha): 0.75  - Up-weights minority class")
-    print(f"  γ (gamma): 2.5   - Strong focus on hard examples")
+    print(f"  α (alpha): 0.25  - Up-weights minority class")
+    print(f"  γ (gamma): 2.0   - Strong focus on hard examples")
     print(f"  Label Smoothing: {0.1 if use_label_smoothing else 0.0}")
 
     # Optimizer with lower learning rate for fine-tuning
     optimizer = tf.keras.optimizers.AdamW(
-        learning_rate=1e-4,  # Lower than initial training
+        learning_rate=5e-4,  # Lower than initial training
         weight_decay=0.01,
     )
 
@@ -174,7 +174,7 @@ def train_with_focal_loss(cfg, use_label_smoothing=True):
     history = model.fit(
         train_ds,
         validation_data=val_ds,
-        epochs=20,  # Extended training
+        epochs=30,  # Extended training
         callbacks=callbacks,
         class_weight=class_weights
         if cfg["train"].get("use_class_weights", False)
