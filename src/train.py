@@ -6,19 +6,21 @@
 # Also computes temperature scaling (calibration) on the validation set.
 # Saves curves into 'reports/'.
 
-import argparse, os, json
+import argparse
+import os
+import json
 import sys
 
 # GPU Configuration - must be set BEFORE importing TensorFlow
 # NVIDIA GPU is device 0 (Intel iGPU doesn't count as CUDA device)
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # Use NVIDIA GPU
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ['TF_GPU_THREAD_MODE'] = 'gpu_private'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # Reduce TF logging noise
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use NVIDIA GPU
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+os.environ["TF_GPU_THREAD_MODE"] = "gpu_private"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Reduce TF logging noise
 
 import tensorflow as tf
 import wandb
-from wandb.integration.keras import WandbMetricsLogger, WandbModelCheckpoint 
+from wandb.integration.keras import WandbMetricsLogger, WandbModelCheckpoint
 
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -27,38 +29,48 @@ from src.utils import load_config, set_seed
 from src.data import get_datasets
 from src.model import create_model
 
+
 def build_optimizer(cfg, steps_per_epoch):
     """
     Build the optimizer for training.
     Uses AdamW (or Adam fallback), with CosineDecayRestarts if enabled.
     """
     import tensorflow as tf
+
     lr = cfg["train"]["lr"]
     if cfg["train"].get("use_cosine_decay", True):
         schedule = tf.keras.optimizers.schedules.CosineDecayRestarts(
             initial_learning_rate=lr,
-            first_decay_steps=max(steps_per_epoch*3, 100),
-            t_mul=2.0, m_mul=0.9, alpha=1e-4
+            first_decay_steps=max(steps_per_epoch * 3, 100),
+            t_mul=2.0,
+            m_mul=0.9,
+            alpha=1e-4,
         )
         lr = schedule
-    opt_name = cfg["train"].get("optimizer","adamw").lower()
+    opt_name = cfg["train"].get("optimizer", "adamw").lower()
     if opt_name == "adamw":
         try:
-            optimizer = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=cfg["train"]["weight_decay"])
+            optimizer = tf.keras.optimizers.AdamW(
+                learning_rate=lr, weight_decay=cfg["train"]["weight_decay"]
+            )
         except Exception:
             optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     else:
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     return optimizer
 
+
 def set_mixed_precision(enabled=True):
     """Enable mixed precision (float16 compute / float32 params) if supported."""
-    if not enabled: return
+    if not enabled:
+        return
     try:
         from tensorflow.keras import mixed_precision
+
         mixed_precision.set_global_policy("mixed_float16")
     except Exception:
         pass
+
 
 def freeze_backbone(model, freeze=True):
     """
@@ -75,6 +87,7 @@ def freeze_backbone(model, freeze=True):
         except Exception:
             pass
 
+
 def calibrate_temperature(model, val_ds, max_iters=200):
     """
     Learn temperature T>0 to minimize NLL on the validation set.
@@ -82,6 +95,7 @@ def calibrate_temperature(model, val_ds, max_iters=200):
     """
     import tensorflow as tf
     import numpy as np
+
     # Collect logits and labels
     logits_list, y_list = [], []
     for x, y in val_ds:
@@ -105,6 +119,7 @@ def calibrate_temperature(model, val_ds, max_iters=200):
     T_final = float(tf.exp(logT).numpy())
     return T_final
 
+
 def init_wandb_tracking(cfg):
     """
     Initialize Weights & Biases for experiment tracking.
@@ -112,9 +127,10 @@ def init_wandb_tracking(cfg):
     """
     # Generate unique experiment name
     import datetime
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"{cfg['model']['name']}_{cfg['preprocessing']['mode']}_{timestamp}"
-    
+
     # Initialize W&B
     wandb.init(
         project="brain-tumor-mri-portfolio",  # Project name
@@ -125,12 +141,10 @@ def init_wandb_tracking(cfg):
             "pretrained": cfg["model"]["pretrained"],
             "dropout": cfg["model"]["dropout"],
             "pooling": cfg["model"]["pooling"],
-            
             # Data config
             "image_size": cfg["data"]["image_size"],
             "num_classes": cfg["data"]["num_classes"],
             "preprocessing_mode": cfg["preprocessing"]["mode"],
-            
             # Training config
             "learning_rate": cfg["train"]["lr"],
             "batch_size": cfg["train"]["batch_size"],
@@ -140,7 +154,6 @@ def init_wandb_tracking(cfg):
             "freeze_epochs": cfg["train"]["freeze_backbone_epochs"],
             "use_class_weights": cfg["train"]["use_class_weights"],
             "use_cosine_decay": cfg["train"]["use_cosine_decay"],
-            
             # Augmentation config
             "mixup_alpha": cfg["augment"]["mixup_alpha"],
             "random_flip": cfg["augment"]["random_flip"],
@@ -148,23 +161,25 @@ def init_wandb_tracking(cfg):
             "random_zoom": cfg["augment"]["random_zoom"],
         },
         tags=["classification", "medical-imaging", "efficientnet", "transfer-learning"],
-        notes=f"Medical-grade preprocessing: {cfg['preprocessing']['mode']}"
+        notes=f"Medical-grade preprocessing: {cfg['preprocessing']['mode']}",
     )
-    
-    print(f"✅ W&B initialized: https://wandb.ai/{wandb.run.entity}/{wandb.run.project}/runs/{wandb.run.id}")
+
+    print(
+        f"✅ W&B initialized: https://wandb.ai/{wandb.run.entity}/{wandb.run.project}/runs/{wandb.run.id}"
+    )
     return wandb.config
 
 
 def main(cfg_path):
     cfg = load_config(cfg_path)
-    set_seed(cfg.get("seed",42))
-    
+    set_seed(cfg.get("seed", 42))
+
     # Initialize Weights & Biases tracking
     wandb_config = init_wandb_tracking(cfg)
     print("\n[INFO] Experiment tracking active on W&B")
 
     # Verify GPU is available
-    gpus = tf.config.list_physical_devices('GPU')
+    gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         print(f"\n[INFO] ✅ Training with GPU: {len(gpus)} device(s) found")
         for gpu in gpus:
@@ -195,11 +210,16 @@ def main(cfg_path):
 
     os.makedirs(cfg["train"]["checkpoint_dir"], exist_ok=True)
     callbacks = [
-        tf.keras.callbacks.ModelCheckpoint(os.path.join(cfg["train"]["checkpoint_dir"], "best.keras"),
-                                           monitor="val_accuracy", save_best_only=True),
-        tf.keras.callbacks.EarlyStopping(monitor="val_accuracy",
-                                         patience=cfg["train"]["early_stopping_patience"],
-                                         restore_best_weights=True),
+        tf.keras.callbacks.ModelCheckpoint(
+            os.path.join(cfg["train"]["checkpoint_dir"], "best.keras"),
+            monitor="val_accuracy",
+            save_best_only=True,
+        ),
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_accuracy",
+            patience=cfg["train"]["early_stopping_patience"],
+            restore_best_weights=True,
+        ),
         # tf.keras.callbacks.ReduceLROnPlateau(monitor="val_accuracy", patience=2, factor=0.5, min_lr=1e-6),
         tf.keras.callbacks.CSVLogger(cfg["log"]["csv_log"], append=False),
         tf.keras.callbacks.TensorBoard(log_dir=cfg["log"]["tensorboard_dir"]),
@@ -209,15 +229,18 @@ def main(cfg_path):
             filepath=os.path.join(cfg["train"]["checkpoint_dir"], "best_wandb.keras"),
             monitor="val_accuracy",
             save_best_only=True,
-            save_weights_only=False
+            save_weights_only=False,
         ),
     ]
 
     history1 = model.fit(
-        train_ds, validation_data=val_ds,
+        train_ds,
+        validation_data=val_ds,
         epochs=cfg["train"]["freeze_backbone_epochs"],
         callbacks=callbacks,
-        class_weight=class_weights if cfg["train"].get("use_class_weights", False) else None
+        class_weight=class_weights
+        if cfg["train"].get("use_class_weights", False)
+        else None,
     )
 
     # Stage 2: unfreeze backbone
@@ -227,10 +250,13 @@ def main(cfg_path):
     optimizer = build_optimizer(cfg, steps_per_epoch)
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     history2 = model.fit(
-        train_ds, validation_data=val_ds,
+        train_ds,
+        validation_data=val_ds,
         epochs=cfg["train"]["epochs"],
         callbacks=callbacks,
-        class_weight=class_weights if cfg["train"].get("use_class_weights", False) else None
+        class_weight=class_weights
+        if cfg["train"].get("use_class_weights", False)
+        else None,
     )
 
     # Merge histories for nicer plots
@@ -240,60 +266,69 @@ def main(cfg_path):
 
     # Save training curves
     from plots import save_training_curves
+
     save_training_curves(history, out_dir="reports")
 
     print("Best val acc (stage 2):", max(history2.history.get("val_accuracy", [0])))
 
     # Temperature scaling calibration
-    if cfg.get("calibration",{}).get("enabled", True):
-        T = calibrate_temperature(model, val_ds, max_iters=cfg["calibration"].get("max_iters", 200))
-        with open(os.path.join(cfg["train"]["checkpoint_dir"], "temperature.json"), "w") as f:
+    if cfg.get("calibration", {}).get("enabled", True):
+        T = calibrate_temperature(
+            model, val_ds, max_iters=cfg["calibration"].get("max_iters", 200)
+        )
+        with open(
+            os.path.join(cfg["train"]["checkpoint_dir"], "temperature.json"), "w"
+        ) as f:
             json.dump({"temperature": T}, f)
         print(f"[Calibration] Saved temperature: T={T:.3f}")
 
     # Log final metrics to W&B
-    wandb.log({
-        "final_train_accuracy": max(history2.history.get("accuracy", [0])),
-        "final_val_accuracy": max(history2.history.get("val_accuracy", [0])),
-        "final_train_loss": min(history2.history.get("loss", [999])),
-        "final_val_loss": min(history2.history.get("val_loss", [999])),
-    })
-    
+    wandb.log(
+        {
+            "final_train_accuracy": max(history2.history.get("accuracy", [0])),
+            "final_val_accuracy": max(history2.history.get("val_accuracy", [0])),
+            "final_train_loss": min(history2.history.get("loss", [999])),
+            "final_val_loss": min(history2.history.get("val_loss", [999])),
+        }
+    )
+
     # Save training curves as W&B artifacts
     import matplotlib.pyplot as plt
-    
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-    
+
     # Plot accuracy
-    ax1.plot(history['accuracy'], label='Train Accuracy', linewidth=2)
-    ax1.plot(history['val_accuracy'], label='Val Accuracy', linewidth=2)
-    ax1.set_xlabel('Epoch', fontsize=12)
-    ax1.set_ylabel('Accuracy', fontsize=12)
-    ax1.set_title('Training Progress', fontsize=14, fontweight='bold')
+    ax1.plot(history["accuracy"], label="Train Accuracy", linewidth=2)
+    ax1.plot(history["val_accuracy"], label="Val Accuracy", linewidth=2)
+    ax1.set_xlabel("Epoch", fontsize=12)
+    ax1.set_ylabel("Accuracy", fontsize=12)
+    ax1.set_title("Training Progress", fontsize=14, fontweight="bold")
     ax1.legend()
     ax1.grid(alpha=0.3)
-    
+
     # Plot loss
-    ax2.plot(history['loss'], label='Train Loss', linewidth=2)
-    ax2.plot(history['val_loss'], label='Val Loss', linewidth=2)
-    ax2.set_xlabel('Epoch', fontsize=12)
-    ax2.set_ylabel('Loss', fontsize=12)
-    ax2.set_title('Loss Curves', fontsize=14, fontweight='bold')
+    ax2.plot(history["loss"], label="Train Loss", linewidth=2)
+    ax2.plot(history["val_loss"], label="Val Loss", linewidth=2)
+    ax2.set_xlabel("Epoch", fontsize=12)
+    ax2.set_ylabel("Loss", fontsize=12)
+    ax2.set_title("Loss Curves", fontsize=14, fontweight="bold")
     ax2.legend()
     ax2.grid(alpha=0.3)
-    
+
     plt.tight_layout()
-    
+
     # Log to W&B
     wandb.log({"training_curves": wandb.Image(fig)})
     plt.close(fig)
-    
+
     # Finish W&B run
     wandb.finish()
     print(f"\n✅ Training complete! View results at: https://wandb.ai")
 
+
 if __name__ == "__main__":
     import tensorflow as tf
+
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/config.yaml")
     args = p.parse_args()
