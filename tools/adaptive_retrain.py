@@ -14,7 +14,6 @@ the impact on the external dataset.
 """
 
 import os
-import sys
 import argparse
 import json
 import numpy as np
@@ -30,13 +29,10 @@ import tensorflow as tf
 from pathlib import Path
 from tqdm import tqdm
 
-# Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from src.utils import load_config, set_seed
 from src.data import get_datasets
 from src.model import create_model
-from src.losses import FocalLoss, get_loss_function
+from src.losses import FocalLoss
 
 
 def create_tumor_focused_augmentation():
@@ -51,14 +47,10 @@ def create_tumor_focused_augmentation():
     return tf.keras.Sequential(
         [
             tf.keras.layers.RandomFlip("horizontal"),
-            tf.keras.layers.RandomFlip(
-                "vertical"
-            ),  # Medical images can be flipped both ways
-            tf.keras.layers.RandomRotation(0.15),  # ±54 degrees
-            tf.keras.layers.RandomZoom(0.15),
-            tf.keras.layers.RandomBrightness(0.15),
-            tf.keras.layers.RandomContrast(0.15),
-            # tf.keras.layers.RandomTranslation(0.1, 0.1),  # Small shifts
+            tf.keras.layers.RandomRotation(0.08),  # capped for anatomical realism (~±29°)
+            tf.keras.layers.RandomZoom(0.1),
+            tf.keras.layers.RandomBrightness(0.12),
+            tf.keras.layers.RandomContrast(0.12),
         ],
         name="tumor_augmentation",
     )
@@ -87,6 +79,21 @@ def apply_tta_inference(model, image, n_augmentations=5):
     return avg_logits
 
 
+def load_temperature(ckpt_dir: str, filename: str = "focal_temperature.json") -> float:
+    """
+    Load temperature scaling factor if available.
+    """
+    path = os.path.join(ckpt_dir, filename)
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            return float(data.get("temperature", 1.0))
+        except Exception:
+            return 1.0
+    return 1.0
+
+
 def train_with_focal_loss(cfg, use_label_smoothing=True):
     """
     Retrain the model with Focal Loss and enhanced augmentation.
@@ -111,7 +118,9 @@ def train_with_focal_loss(cfg, use_label_smoothing=True):
     model = create_model(cfg, num_classes)
 
     # Load base weights as starting point (transfer learning from previous training)
-    base_model_path = os.path.join(cfg["train"]["checkpoint_dir"], "finetuned_navoneel.keras")
+    base_model_path = os.path.join(
+        cfg["train"]["checkpoint_dir"], "finetuned_navoneel.keras"
+    )
     if os.path.exists(base_model_path):
         print(f"[INFO] Loading base weights from: {base_model_path}")
         base_model = tf.keras.models.load_model(base_model_path, compile=False)
@@ -187,10 +196,20 @@ def train_with_focal_loss(cfg, use_label_smoothing=True):
     return model, history
 
 
-def evaluate_on_external_with_tta(model, data_dir, cfg, use_tta=True, n_tta=5):
+def evaluate_on_external_with_tta(
+    model,
+    data_dir,
+    cfg,
+    use_tta=True,
+    n_tta=5,
+    threshold=None,
+    temperature=1.0,
+):
     """
     Evaluate the retrained model on external data with optional TTA.
     """
+    if threshold is None:
+        threshold = cfg["inference"].get("threshold", 0.5)
     print("\n" + "=" * 70)
     print("EXTERNAL VALIDATION WITH TEST TIME AUGMENTATION")
     print("=" * 70)
@@ -231,6 +250,9 @@ def evaluate_on_external_with_tta(model, data_dir, cfg, use_tta=True, n_tta=5):
     print(f"[INFO] Test Time Augmentation: {'Enabled' if use_tta else 'Disabled'}")
     if use_tta:
         print(f"[INFO] TTA samples per image: {n_tta}")
+    print(f"[INFO] Decision threshold (tumor vs healthy): {threshold}")
+    if temperature != 1.0:
+        print(f"[INFO] Temperature scaling applied: T={temperature}")
 
     # Predictions
     pred_binary_labels = []
@@ -250,13 +272,14 @@ def evaluate_on_external_with_tta(model, data_dir, cfg, use_tta=True, n_tta=5):
         else:
             logits = model.predict(img, verbose=0)
 
+        logits = logits / temperature
         probs = tf.nn.softmax(logits[0]).numpy()
 
         # Binary decision
         prob_tumor = 1.0 - probs[no_tumor_idx]
         pred_tumor_probs.append(prob_tumor)
 
-        pred_binary = 1 if prob_tumor > 0.5 else 0
+        pred_binary = 1 if prob_tumor >= threshold else 0
         pred_binary_labels.append(pred_binary)
 
     # Metrics
@@ -310,6 +333,8 @@ def evaluate_on_external_with_tta(model, data_dir, cfg, use_tta=True, n_tta=5):
         "confusion_matrix": cm.tolist(),
         "tta_enabled": use_tta,
         "tta_samples": n_tta if use_tta else 1,
+        "threshold": float(threshold),
+        "temperature": float(temperature),
     }
 
 
@@ -370,6 +395,9 @@ def main():
         "--use_tta", action="store_true", help="Use Test Time Augmentation"
     )
     parser.add_argument("--n_tta", type=int, default=5, help="Number of TTA samples")
+    parser.add_argument(
+        "--threshold", type=float, default=None, help="Override tumor decision threshold"
+    )
 
     args = parser.parse_args()
 
@@ -425,13 +453,33 @@ def main():
         print(f"[INFO] Loading model: {model_path}")
         model = tf.keras.models.load_model(model_path, compile=False)
 
+    # Threshold and calibration settings
+    threshold = (
+        args.threshold
+        if args.threshold is not None
+        else cfg["inference"].get("threshold", 0.5)
+    )
+    use_tta = args.use_tta or cfg["inference"].get("tta", False)
+    n_tta = args.n_tta if args.n_tta else cfg["inference"].get("tta_samples", 5)
+    temperature = (
+        load_temperature(cfg["train"]["checkpoint_dir"])
+        if cfg["inference"].get("use_calibration", True)
+        else 1.0
+    )
+
     # Stage 2: Evaluate on external data
     print("\n" + "=" * 70)
     print("EXTERNAL VALIDATION")
     print("=" * 70)
 
     results = evaluate_on_external_with_tta(
-        model, args.external_data, cfg, use_tta=args.use_tta, n_tta=args.n_tta
+        model,
+        args.external_data,
+        cfg,
+        use_tta=use_tta,
+        n_tta=n_tta,
+        threshold=threshold,
+        temperature=temperature,
     )
 
     # Save results
@@ -450,6 +498,8 @@ def main():
     print(f"✓ Label Smoothing applied (ε=0.1)")
     print(f"✓ Temperature recalibrated")
     print(f"✓ External validation completed")
+    print(f"✓ Threshold used: {threshold}")
+    print(f"✓ TTA: {'on' if use_tta else 'off'} (samples={n_tta if use_tta else 1})")
 
     if results["recall"] > 0.85:
         print(f"\n✅ SUCCESS: Recall = {results['recall']:.1%} (Target: >85%)")

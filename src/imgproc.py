@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 
 
 def crop_brain_contour(image_path_or_array, plot=False):

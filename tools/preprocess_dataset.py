@@ -5,7 +5,6 @@ Intelligently routes preprocessing based on configuration.
 Uses ProcessPoolExecutor to utilize all CPU cores effectively.
 """
 
-import os
 import sys
 import argparse
 import cv2
@@ -16,11 +15,8 @@ import json
 import concurrent.futures
 import multiprocessing
 
-# Add root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-
-def load_config(config_path: str = "configs/config.yaml") -> dict:
+def load_config(config_path: str = "../configs/config.yaml") -> dict:
     """Load configuration file."""
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
@@ -116,6 +112,9 @@ def _process_single_medical(args):
 
     save_metadata = config_params["save_metadata"]
     quality_filter = config_params["quality_filter"]
+    q_thresholds = config_params.get("quality_filter_thresholds", {})
+    min_snr = q_thresholds.get("min_snr", 2.0)
+    min_contrast = q_thresholds.get("min_contrast", 50.0)
 
     try:
         img = cv2.imread(str(src_file))
@@ -130,7 +129,7 @@ def _process_single_medical(args):
             q_metrics = metadata.get("quality_metrics", {})
             snr = q_metrics.get("snr_estimate", 0)
             contrast = q_metrics.get("contrast", 0)
-            if snr < 2.0 or contrast < 50:
+            if snr < min_snr or contrast < min_contrast:
                 return "quality_filtered"
 
         # Save
@@ -204,6 +203,9 @@ def preprocess_medical(input_dir: str, output_dir: str, config: dict):
         },
         "save_metadata": medical_config.get("save_metadata", False),
         "quality_filter": medical_config.get("quality_filter", False),
+        "quality_filter_thresholds": medical_config.get(
+            "quality_filter_thresholds", {}
+        ),
     }
 
     stats = {"total": len(files), "processed": 0, "failed": 0, "quality_filtered": 0}

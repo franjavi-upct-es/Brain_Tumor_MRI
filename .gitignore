@@ -6,3 +6,4 @@ tb
 __pycache__
 *.csv
 wandb
+__init__.py

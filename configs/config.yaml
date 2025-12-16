@@ -1,128 +1,96 @@
 seed: 42
-framework: "tensorflow/keras"
-
-# ==================== DATA CONFIGURATION ====================
+framework: tensorflow/keras
 data:
   auto_split: false
-
-  # Point to the cropped fodlers after running tools/preprocess_dataset.py
-  train_dir: "data/train_medical"
-  val_dir: "data/val_medical"
-  test_dir: "data/test_medical"
-
-  # Fallback/Legacy options
-  root_dir: "data/train_medical"
-
+  train_dir: data/train_medical
+  val_dir: data/val_medical
+  test_dir: data/test_medical
+  root_dir: data/train_medical
   image_size: 224
   channels: 3
   num_classes: 4
   class_names:
-    - glioma
-    - meningioma
-    - no_tumor
-    - pituitary
+  - glioma
+  - meningioma
+  - no_tumor
+  - pituitary
   valid_split: 0.2
   shuffle: true
   balance: true
-
-# ==================== PREPROCESSING CONFIGURATION ====================
 preprocessing:
-  # Choose preprocessing mode: "legacy", "medical", "hybrid"
-  # - legacy: Simple skull stripping (original method)
-  # - medical: Full medical-grade pipeline (N4 + BET + Nyúl + CLAHE)
-  # - hybrid: Medical for main data, legacy external (compatiblity)
-  mode: "medical"
-
-  # Medical-grade specific settings
+  mode: medical
   medical:
-    # Bias field correction (CRITICAL - should always be True)
     apply_n4_bias_correction: true
-
-    # Denoising method
-    apply_rician_denoising: true # Set false to use anisotropic diffusion instead
-
-    # Skull stripping mehtod: "bet" (gold standard), "zscore", "histogram_matching"
-    # CRITICAL for cross-scanner generalization
-    intensity_normalization: "nyul"
-
-    # Enhancement method: "clahe" (standard), "anisotropic_diffusion", "unsharp_mask"
-    enhance_method: "clahe"
-
-    # Save preprocessing metadata for analysis
+    apply_rician_denoising: true
+    intensity_normalization: nyul
+    enhance_method: clahe
     save_metadata: true
-
-    # Qualitu control - filter low-quality images
-    quality_filter: false # Set true to skip problematic images
-
-  # Legacy preprocessing (backward compatiblity)
+    quality_filter: true
+    quality_filter_thresholds:
+      min_snr: 2.0
+      min_contrast: 50.0
   legacy:
     simple_crop: true
     padding: 0
-
-# ==================== TRAINING CONFIGURATION ====================
 train:
-  batch_size: 64 # Increased from 32 for better GPU utilization
+  batch_size: 64
   epochs: 35
   mixed_precision: true
   lr: 0.001
-  optimizer: "adamw"
+  optimizer: adamw
   weight_decay: 0.01
   freeze_backbone_epochs: 5
+  loss: categorical_crossentropy
+  recall_loss: tversky
+  tversky_alpha: 0.3
+  tversky_beta: 0.7
+  focal_alpha: 0.75
+  focal_gamma: 2.0
+  label_smoothing: 0.0
+  pos_weight: 3.0
   early_stopping_patience: 4
-  checkpoint_dir: "models/"
+  checkpoint_dir: models/
   num_workers: 2
   use_class_weights: true
   use_cosine_decay: true
-
-# ==================== AUGMENTATION CONFIGURATION ====================
+  holdout_split_external: 0.15
 augment:
   random_flip: true
   random_rotate: 0.05
   random_zoom: 0.1
-  random_brightness: 0.1 # Reduced since medical preprocessing already enhances
-  random_contrast: 0.1 # Reduced since CLAHE is applied
+  random_brightness: 0.1
+  random_contrast: 0.1
   mixup_alpha: 0.0
-
-  # Advanced augmentation (from LGG notebook)
-  # Enable for more aggressive training
   advanced:
     enable: false
     elastic_transform: false
     grid_distortion: false
     optical_distortion: false
-
-# ==================== MODEL CONFIGURATION ====================
 model:
-  name: "efficientnet_v2_b0"
+  name: efficientnet_v2_b0
   pretrained: true
   dropout: 0.25
-  pooling: "avg"
-
-# ==================== LOGGING CONFIGURATION ====================
+  pooling: avg
 log:
-  csv_log: "training_log.csv"
-  tensorboard_dir: "tb/"
+  csv_log: training_log.csv
+  tensorboard_dir: tb/
   save_confusion_matrix: true
   save_classif_report: true
-
-# ==================== INFERENCE CONFIGURATION ====================
 inference:
   tta: false
-  threshold: 0.5
+  tta_samples: 5
+  threshold: 0.20000000000000004
+  target_recall: 0.9
+  max_fp_rate: 0.1
   use_calibration: true
-
-# ==================== CALIBRATION CONFIGURATION ====================
+  last_threshold_reason: fallback to best F1 because FP constraint was violated at
+    all thresholds
 calibration:
   enabled: true
   max_iters: 200
-
-# ==================== PIPELINE CONTROL ====================
 pipeline:
-  # Skip preprocessing if output directories already exist
   skip_existing_preprocessing: true
-
-  # Use different preprocessing for different datasets
   dataset_specific_preprocessing:
-    main: "medical" # Masoud + Pradeep
-    external: "medical" # Navoneel (important: use same as training)
-    lgg: "medical" # LGG segmentation data
+    main: medical
+    external: medical
+    lgg: medical

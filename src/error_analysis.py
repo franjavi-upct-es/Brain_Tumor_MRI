@@ -1,8 +1,8 @@
 # %% [markdown]
 # # Brain Tumor MRI: Comprehensive Error Analysis
-# 
+#
 # **Objective:** Identify systematic patterns in classification errors to guide future model improvements.
-# 
+#
 # **Methodology:**
 # 1. Error collection on test set.
 # 2. Distribution analysis by class.
@@ -11,20 +11,17 @@
 # 5. Evidence-based recommendations.
 
 # %%
-import sys
 import os
+from pathlib import Path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import tensorflow as tf
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from pathlib import Path
+import tensorflow as tf
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-from sklearn.metrics import confusion_matrix, classification_report
-import cv2
 
 # Visualization configuration
 plt.style.use("seaborn-v0_8-darkgrid")
@@ -46,9 +43,7 @@ img_size = cfg["data"]["image_size"]
 # Load BASE MODEL
 model_base_path = "models/best.keras"
 if not os.path.exists(model_base_path):
-    raise FileNotFoundError(
-        "❌ Base model not found. Run first: python src/train.py"
-    )
+    raise FileNotFoundError("❌ Base model not found. Run first: python src/train.py")
 model_base = tf.keras.models.load_model(model_base_path, compile=False)
 print(f"✅ BASE model loaded from: {model_base_path}")
 
@@ -74,7 +69,7 @@ else:
 
 # %% [markdown]
 # ## 1. Comparative Analysis: Base Model vs Fine-Tuned
-# 
+#
 # We analyze errors on the **External Dataset (Navoneel)** with both models.
 # This is the dataset where we observe the real domain shift problem.
 
@@ -222,7 +217,7 @@ else:
 
 # %% [markdown]
 # ## 2. Error Analysis Dashboard
-# 
+#
 # We visualize error patterns from multiple perspectives.
 
 # %%
@@ -241,7 +236,9 @@ else:
     print(f"\n📊 Error Comparison:")
     print(f"   Base Model: {len(df_errors_base)} errors")
     print(f"   Fine-Tuned Model: {len(df_errors_ft)} errors")
-    print(f"   Improvement: {len(df_errors_base) - len(df_errors_ft)} errors corrected\n")
+    print(
+        f"   Improvement: {len(df_errors_base) - len(df_errors_ft)} errors corrected\n"
+    )
 
     # We use the BASE model for detailed analysis (shows the original problem)
     df_errors = df_errors_base
@@ -480,9 +477,7 @@ if len(df_errors) > 0:
         )
         ax.axis("off")
 
-    plt.savefig(
-        "reports/error_comparison_dashboard.png", dpi=180, bbox_inches="tight"
-    )
+    plt.savefig("reports/error_comparison_dashboard.png", dpi=180, bbox_inches="tight")
     print("\n✅ Comparative dashboard saved: reports/error_comparison_dashboard.png")
     plt.show()
 else:
@@ -490,7 +485,7 @@ else:
 
 # %% [markdown]
 # ## 3. Statistical Analysis
-# 
+#
 # We identify quantitative patterns in the errors.
 
 # %%
@@ -523,9 +518,7 @@ if len(df_errors) > 0:
         f"\n4. HIGH CONFIDENCE ERRORS (>80%): {len(high_conf_errors)} / {len(df_errors)}"
     )
     if len(high_conf_errors) > 0:
-        print(
-            "   These are the most concerning cases (model very confident but wrong)"
-        )
+        print("   These are the most concerning cases (model very confident but wrong)")
         print(
             high_conf_errors[["true_class", "pred_class", "conf_base"]]
             .head(10)
@@ -534,7 +527,7 @@ if len(df_errors) > 0:
 
 # %% [markdown]
 # ## 4. Visual Error Gallery
-# 
+#
 # We visualize specific cases to identify visual patterns.
 
 # %%
@@ -600,7 +593,7 @@ if len(df_errors) > 0:
 
 # %% [markdown]
 # ## 5. Data Export
-# 
+#
 # We save errors to CSV for later analysis or team sharing.
 
 # %%
@@ -617,8 +610,7 @@ if len(df_errors) > 0:
 
     # Convert tuples to strings for JSON
     most_common_confusions = {
-        f"{k[0]} → {k[1]}": int(v)
-        for k, v in confusion_pairs_export.head(3).items()
+        f"{k[0]} → {k[1]}": int(v) for k, v in confusion_pairs_export.head(3).items()
     }
 
     # Save statistical summary
@@ -641,7 +633,7 @@ if len(df_errors) > 0:
 
 # %% [markdown]
 # ## 6. Model Improvement Recommendations
-# 
+#
 # Based on error analysis, we propose specific improvements:
 
 # %%
@@ -701,5 +693,3 @@ else:
     print("   3. Evaluate with K-Fold CV to estimate variance")
 
 print("\n✅ Complete analysis finished")
-
-

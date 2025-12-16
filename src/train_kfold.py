@@ -2,7 +2,7 @@
 # ------------------------------------------------------------
 # This script provides a quick way to estimate performance variability by
 # splitting the dataset (file-based) into K folds. For each fold, we train a
-# new model and report the best validation accuracy. The final summary gives 
+# new model and report the best validation accuracy. The final summary gives
 # mean and std across folds. This is not meant to replace a held-out test set,
 # but it helps diagnose variance and overfitting.
 #
@@ -19,35 +19,40 @@ import numpy as np
 from src.utils import load_config, set_seed
 from src.model import create_model
 
+
 def collect_files(root_dir: str, class_names: List[str]):
     """Colect image file paths and their numeric labels from a class-based tree"""
     data, y = [], []
     for i, cls in enumerate(class_names):
         for p in glob.glob(os.path.join(root_dir, cls, "**", "*.*"), recursive=True):
             if p.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")):
-                data.append(p); y.append(i)
+                data.append(p)
+                y.append(i)
     return np.array(data), np.array(y)
+
 
 def make_ds(files, labels, img_size, batch, preprocess, shuffle):
     """
     Create a simple tf.data pipeline from file paths. We keep this minimal for clarity.
     """
     import tensorflow as tf
+
     ds = tf.data.Dataset.from_tensor_slices((files, labels))
     if shuffle:
         ds = ds.shuffle(len(files), seed=42, reshuffle_each_iteration=False)
-    
+
     def _load(f, y):
         img = tf.io.read_file(f)
         img = tf.image.decode_image(img, channels=3, expand_animations=False)
         img = tf.image.resize(img, (img_size, img_size))
         img = preprocess(img)
-        y_one = tf.one_hot(y, tf.reduce_max(labels)+1)
+        y_one = tf.one_hot(y, tf.reduce_max(labels) + 1)
         return img, y_one
 
     ds = ds.map(_load, num_parallel_calls=tf.data.AUTOTUNE)
     ds = ds.batch(batch).prefetch(tf.data.AUTOTUNE)
     return ds
+
 
 def main(cfg_path):
     cfg = load_config(cfg_path)
@@ -68,8 +73,22 @@ def main(cfg_path):
 
     for fold, (train_idx, val_idx) in enumerate(skf.split(files, labels), start=1):
         print(f"Fold {fold}")
-        train_ds = make_ds(files[train_idx], labels[train_idx], cfg["data"]["image_size"], cfg["train"]["batch_size"], preprocess, shuffle=True)
-        val_ds = make_ds(files[val_idx], labels[val_idx], cfg["data"]["image_size"], cfg["train"]["batch_size"], preprocess, shuffle=False)
+        train_ds = make_ds(
+            files[train_idx],
+            labels[train_idx],
+            cfg["data"]["image_size"],
+            cfg["train"]["batch_size"],
+            preprocess,
+            shuffle=True,
+        )
+        val_ds = make_ds(
+            files[val_idx],
+            labels[val_idx],
+            cfg["data"]["image_size"],
+            cfg["train"]["batch_size"],
+            preprocess,
+            shuffle=False,
+        )
 
         steps_per_epoch = max(1, tf.data.experimental.cardinality(train_ds).numpy())
         model = create_model(cfg, len(class_names))
@@ -78,25 +97,41 @@ def main(cfg_path):
         for layer in model.layers:
             if "efficientnet" in layer.name:
                 layer.trainable = False
-        opt = tf.keras.optimizers.AdamW(learning_rate=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"])
+        opt = tf.keras.optimizers.AdamW(
+            learning_rate=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"]
+        )
         loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
         model.compile(optimizer=opt, loss=loss, metrics=["accuracy"])
-        model.fit(train_ds, validation_data=val_ds, epochs=cfg["train"]["freeze_backbone_epochs"])
+        model.fit(
+            train_ds,
+            validation_data=val_ds,
+            epochs=cfg["train"]["freeze_backbone_epochs"],
+        )
 
         for layer in model.layers:
             layer.trainable = True
-        opt = tf.keras.optimizers.AdamW(learning_rate=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"])
+        opt = tf.keras.optimizers.AdamW(
+            learning_rate=cfg["train"]["lr"], weight_decay=cfg["train"]["weight_decay"]
+        )
         model.compile(optimizer=opt, loss=loss, metrics=["accuracy"])
-        hist = model.fit(train_ds, validation_data=val_ds, epochs=cfg["train"]["epochs"])
+        hist = model.fit(
+            train_ds, validation_data=val_ds, epochs=cfg["train"]["epochs"]
+        )
 
         best = max(hist.history.get("val_accuracy", [0]))
         metrics_per_fold.append(best)
         print(f"Fold best val acc: {best}")
 
-    print("Mean±std val acc:", float(np.mean(metrics_per_fold)), float(np.std(metrics_per_fold)))
+    print(
+        "Mean±std val acc:",
+        float(np.mean(metrics_per_fold)),
+        float(np.std(metrics_per_fold)),
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--config", default='configs/config.yaml')
+    p.add_argument("--config", default="configs/config.yaml")
     args = p.parse_args()
     main(args.config)
+

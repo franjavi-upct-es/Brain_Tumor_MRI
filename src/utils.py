@@ -15,12 +15,12 @@
 
 import os
 import random
-from types import new_class
 
 import numpy as np
 import yaml
 from collections import Counter
 from typing import Dict, List
+
 
 def set_seed(seed: int = 42) -> None:
     """
@@ -33,20 +33,24 @@ def set_seed(seed: int = 42) -> None:
     # Tensorflow
     try:
         import tensorflow as tf
+
         tf.random.set_seed(seed)
     except Exception:
         pass
     # PyTorch (no used here, but safe to seed if available)
     try:
         import torch
+
         torch.manual_seed(seed)
     except Exception:
         pass
+
 
 def load_config(path: str) -> dict:
     """Load a YAML config from disk into a Python dict."""
     with open(path, "r") as f:
         return yaml.safe_load(f)
+
 
 def walk_class_counts(root_dir: str, class_names: List[str] = None) -> Dict[str, int]:
     """
@@ -68,11 +72,15 @@ def walk_class_counts(root_dir: str, class_names: List[str] = None) -> Dict[str,
         n = 0
         for _, _, files in os.walk(cls_path):
             n += sum(
-                1 for x in files
-                if x.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"))
+                1
+                for x in files
+                if x.lower().endswith(
+                    (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
+                )
             )
         counts[cls] = n
     return counts
+
 
 def compute_class_weights(counts: Dict[str, int]) -> Dict[str, float]:
     """
@@ -89,3 +97,4 @@ def compute_class_weights(counts: Dict[str, int]) -> Dict[str, float]:
     for cls, c in counts.items():
         weights[cls] = (total / (n_classes * c)) if c > 0 else 0.0
     return weights
+

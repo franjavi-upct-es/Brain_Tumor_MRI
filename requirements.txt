@@ -3,7 +3,6 @@ pandas
 wandb
 tensorflow-probability
 numpy
-pandas
 scikit-learn
 opencv-python
 Pillow

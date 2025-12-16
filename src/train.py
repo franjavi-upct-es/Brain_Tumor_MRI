@@ -28,6 +28,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import load_config, set_seed
 from src.data import get_datasets
 from src.model import create_model
+from src.losses import get_loss_function
 
 
 def build_optimizer(cfg, steps_per_epoch):
@@ -86,6 +87,30 @@ def freeze_backbone(model, freeze=True):
             model.get_layer("logits").trainable = True
         except Exception:
             pass
+
+
+def resolve_loss(cfg, key: str, fallback: str):
+    """
+    Select a loss function from config, defaulting to categorical crossentropy.
+    Supports focal/tversky/weighted_bce for FN-oriented fine-tuning.
+    """
+    train_cfg = cfg.get("train", {})
+    name = train_cfg.get(key, fallback)
+    params = {}
+    if name == "tversky":
+        params = {
+            "alpha": train_cfg.get("tversky_alpha", 0.3),
+            "beta": train_cfg.get("tversky_beta", 0.7),
+        }
+    elif name == "weighted_bce":
+        params = {"pos_weight": train_cfg.get("pos_weight", 3.0)}
+    elif name == "focal":
+        params = {
+            "alpha": train_cfg.get("focal_alpha", 0.75),
+            "gamma": train_cfg.get("focal_gamma", 2.0),
+            "label_smoothing": train_cfg.get("label_smoothing", 0.0),
+        }
+    return get_loss_function(name, from_logits=True, **params)
 
 
 def calibrate_temperature(model, val_ds, max_iters=200):
@@ -204,9 +229,9 @@ def main(cfg_path):
     # Stage 1: freeze backbone
     freeze_backbone(model, True)
     optimizer = build_optimizer(cfg, steps_per_epoch)
-    loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+    warmup_loss = resolve_loss(cfg, "loss", fallback="categorical_crossentropy")
     metrics = [tf.keras.metrics.CategoricalAccuracy(name="accuracy")]
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    model.compile(optimizer=optimizer, loss=warmup_loss, metrics=metrics)
 
     os.makedirs(cfg["train"]["checkpoint_dir"], exist_ok=True)
     callbacks = [
@@ -233,6 +258,7 @@ def main(cfg_path):
         ),
     ]
 
+    print(f"[INFO] Warmup loss: {warmup_loss.name}")
     history1 = model.fit(
         train_ds,
         validation_data=val_ds,
@@ -248,7 +274,13 @@ def main(cfg_path):
         layer.trainable = True
 
     optimizer = build_optimizer(cfg, steps_per_epoch)
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    finetune_loss = resolve_loss(
+        cfg,
+        "recall_loss",
+        fallback=cfg.get("train", {}).get("loss", "categorical_crossentropy"),
+    )
+    model.compile(optimizer=optimizer, loss=finetune_loss, metrics=metrics)
+    print(f"[INFO] Fine-tune loss: {finetune_loss.name}")
     history2 = model.fit(
         train_ds,
         validation_data=val_ds,
@@ -265,7 +297,7 @@ def main(cfg_path):
         history[k] = history1.history.get(k, []) + history2.history.get(k, [])
 
     # Save training curves
-    from plots import save_training_curves
+    from src.plots import save_training_curves
 
     save_training_curves(history, out_dir="reports")
 

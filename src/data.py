@@ -15,12 +15,7 @@
 # - If your MRI images are grayscale, Keras loaders can output 1-channel or we
 #   can convert to RGB (3-channel) explicitly; most ImagenNet backbones expect 3.
 
-import os
 from typing import Dict
-import sys
-
-# Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.utils import walk_class_counts
 
@@ -153,4 +148,3 @@ def get_datasets(cfg: Dict):
         cw = {i: float(cw_map.get(cls, 1.0)) for i, cls in enumerate(class_names)}
 
     return train, val, test, class_names, cw
-

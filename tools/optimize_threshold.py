@@ -1,15 +1,14 @@
-import os
-import sys
 import argparse
+import os
+from pathlib import Path
+
 import numpy as np
 import tensorflow as tf
-from pathlib import Path
-from tqdm import tqdm
-from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from sklearn.metrics import classification_report, confusion_matrix
+import yaml
 
-# Add path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import load_config
+
 
 def load_and_preprocess_image(path, img_size, preprocess_input):
     """Load and preprocess an image for the model."""
@@ -18,20 +17,26 @@ def load_and_preprocess_image(path, img_size, preprocess_input):
     img = tf.image.resize(img, (img_size, img_size))
     return preprocess_input(img)
 
+
 def main(config_path, data_dir):
     cfg = load_config(config_path)
-    img_size = cfg['data']['image_size']
-    class_names = cfg['data']['class_names']
+    img_size = cfg["data"]["image_size"]
+    class_names = cfg["data"]["class_names"]
+    target_recall = cfg["inference"].get("target_recall", 0.85)
+    max_fp_rate = cfg["inference"].get("max_fp_rate", 0.15)
 
     # Index of the healthy class
     try:
-        no_tumor_idx = class_names.index('no_tumor')
+        no_tumor_idx = class_names.index("no_tumor")
     except ValueError:
         print("[ERROR] 'no_tumor' not found in class_names.")
         return
-    
+
     print("[INFO] Loading model...")
-    model = tf.keras.models.load_model(os.path.join(cfg['train']['checkpoint_dir'], 'finetuned_navoneel.keras'), compile=False)
+    model = tf.keras.models.load_model(
+        os.path.join(cfg["train"]["checkpoint_dir"], "finetuned_navoneel.keras"),
+        compile=False,
+    )
 
     if "v2" in cfg["model"]["name"]:
         preprocess = tf.keras.applications.efficientnet_v2.preprocess_input
@@ -41,7 +46,7 @@ def main(config_path, data_dir):
     # 1. Load all images and labels
     data_path = Path(data_dir)
     paths = []
-    y_true = [] # 0: Healthy, 1: Tumor
+    y_true = []  # 0: Healthy, 1: Tumor
 
     print("[INFO] Loading dataset for analysis")
     # Healthy
@@ -63,7 +68,10 @@ def main(config_path, data_dir):
     # Process in batches for speed
     batch_size = 32
     ds = tf.data.Dataset.from_tensor_slices(paths)
-    ds = ds.map(lambda x: load_and_preprocess_image(x, img_size, preprocess), num_parallel_calls=tf.data.AUTOTUNE)
+    ds = ds.map(
+        lambda x: load_and_preprocess_image(x, img_size, preprocess),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
     ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     all_probs = model.predict(ds, verbose=1)
@@ -78,12 +86,15 @@ def main(config_path, data_dir):
     tumor_probs = 1.0 - all_probs[:, no_tumor_idx]
 
     # Threshold Sweep
-    print("\n" + "=" * 90)
-    print(f"{'Threshold':<10} | {'Recall (Tumor)':<15} | {'Precision':<10} | {'FP (False Alarms)':<20} | {'FN (Missed Tumors)'}")
-    print("=" * 90)
+    print("\n" + "=" * 110)
+    print(
+        f"{'Threshold':<10} | {'Recall (Tumor)':<15} | {'Precision':<10} | {'FP Rate':<10} | {'FP (False Alarms)':<20} | {'FN (Missed Tumors)'}"
+    )
+    print("=" * 110)
 
-    best_f1 = 0
-    best_thresh = 0.5
+    best_by_constraint = None  # (recall, fp_rate, thresh, precision, fp, fn)
+    best_recall_under_fp = None
+    best_f1 = (0, 0.5)  # (f1, thresh)
 
     thresholds = np.arange(0.1, 0.95, 0.05)
     for t in thresholds:
@@ -95,21 +106,78 @@ def main(config_path, data_dir):
 
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        fp_rate = fp / (fp + tn) if (fp + tn) > 0 else 0
+        f1 = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0
+        )
 
-        print(f"{t:.2f}       | {recall:.1%}           | {precision:.1%}      | {fp:<20} | {fn}")
+        print(
+            f"{t:.2f}       | {recall:.1%}           | {precision:.1%}      | {fp_rate:.1%}     | {fp:<20} | {fn}"
+        )
 
-        if f1 > best_f1:
-            best_f1 = f1
-            best_thresh = t
+        meets_constraint = (recall >= target_recall) and (fp_rate <= max_fp_rate)
+        within_fp = fp_rate <= max_fp_rate
 
-    print("=" * 90)
-    print(f"[RECOMMENDATION] The best statistical balance (F1-Score) is at threshold: {best_thresh:.2f}")
+        if meets_constraint:
+            if (
+                best_by_constraint is None
+                or recall > best_by_constraint[0]
+                or (
+                    recall == best_by_constraint[0]
+                    and fp_rate < best_by_constraint[1]
+                )
+            ):
+                best_by_constraint = (recall, fp_rate, t, precision, fp, fn)
+        if within_fp:
+            if (best_recall_under_fp is None) or (recall > best_recall_under_fp[0]):
+                best_recall_under_fp = (recall, fp_rate, t, precision, fp, fn)
+        if f1 > best_f1[0]:
+            best_f1 = (f1, t)
 
-    # Show detailed results with the best threshold
+    print("=" * 110)
+
+    if best_by_constraint:
+        chosen = best_by_constraint
+        reason = (
+            f"meets clinical target recall>={target_recall:.2f} with FP rate<={max_fp_rate:.2f}"
+        )
+    elif best_recall_under_fp:
+        chosen = best_recall_under_fp
+        reason = (
+            f"max recall subject to FP rate<={max_fp_rate:.2f} (target recall not reached)"
+        )
+    else:
+        chosen = (
+            None,
+            None,
+            best_f1[1],
+            None,
+            None,
+            None,
+        )
+        reason = "fallback to best F1 because FP constraint was violated at all thresholds"
+
+    best_thresh = chosen[2]
+    print(
+        f"[RECOMMENDATION] Threshold: {best_thresh:.2f} ({reason})"
+    )
+
+    # Show detailed results with the chosen threshold
     print(f"\n--- Results with Optimized Threshold ({best_thresh:.2f}) ---")
     final_preds = (tumor_probs >= best_thresh).astype(int)
-    print(classification_report(y_true, final_preds, target_names=['Healthy', 'Tumor']))
+    print(classification_report(y_true, final_preds, target_names=["Healthy", "Tumor"]))
+
+    # Update config threshold for downstream inference/eval
+    cfg.setdefault("inference", {})["threshold"] = float(best_thresh)
+    cfg["inference"]["last_threshold_reason"] = reason
+    with open(config_path, "w") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False)
+    print(
+        f"\n[INFO] Updated config inference.threshold -> {best_thresh:.2f} in {config_path}"
+    )
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

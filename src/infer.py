@@ -8,6 +8,9 @@
 #   python src/infer.py --config configs/config.yaml --image path/to/image.jpg
 
 import argparse, os, json, numpy as np
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.utils import load_config
 
 def softmax(x, axis=-1):
@@ -18,6 +21,20 @@ def softmax(x, axis=-1):
 def main(cfg_path, image_path, threshold=None):
     cfg = load_config(cfg_path)
     infer_keras(cfg, image_path, threshold)
+
+def _load_temperature(ckpt_dir: str) -> float:
+    """Load temperature scalar if present."""
+    for name in ("temperature.json", "focal_temperature.json"):
+        path = os.path.join(ckpt_dir, name)
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    data = json.load(f)
+                return float(data.get("temperature", 1.0))
+            except Exception:
+                continue
+    return 1.0
+
 
 def infer_keras(cfg, image_path, threshold):
     import tensorflow as tf
@@ -34,6 +51,13 @@ def infer_keras(cfg, image_path, threshold):
     
     print(f"[INFO] Usando modelo: {model_name}")
     model = tf.keras.models.load_model(model_path, compile=False)
+
+    # Calibration temperature (optional)
+    temperature = (
+        _load_temperature(ckpt_dir)
+        if cfg.get("inference", {}).get("use_calibration", True)
+        else 1.0
+    )
 
     # Buscar índice de 'no_tumor'
     try:
@@ -54,7 +78,7 @@ def infer_keras(cfg, image_path, threshold):
     # 3. Predicción
     # Si tenemos temperatura guardada y usamos el modelo original, podríamos aplicarla,
     # pero para el modelo fine-tuned o thresholding manual, usamos logits directos o softmax.
-    logits = model.predict(x, verbose=0)[0]
+    logits = model.predict(x, verbose=0)[0] / temperature
     probs = softmax(logits, axis=0)
 
     # 4. Decisión con Umbral
@@ -65,9 +89,9 @@ def infer_keras(cfg, image_path, threshold):
         # Fallback si no hay clase explícita no_tumor (raro en este proyecto)
         prob_tumor = np.max(probs)
 
-    # Si el usuario no define umbral, usamos 0.5 por defecto
+    # Si el usuario no define umbral, usamos el de config
     if threshold is None:
-        threshold = 0.5
+        threshold = cfg.get("inference", {}).get("threshold", 0.5)
 
     print(f"\n--- Resultado (Umbral {threshold}) ---")
     print(f"Probabilidad de Tumor: {prob_tumor:.2%}")
@@ -93,7 +117,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/config.yaml")
     p.add_argument("--image", required=True)
-    p.add_argument("--threshold", type=float, default=0.65, help="Umbral de detección de tumor (0-1)")
+    p.add_argument("--threshold", type=float, default=None, help="Umbral de detección de tumor (0-1). Por defecto usa el de config.")
     args = p.parse_args()
     
     main(args.config, args.image, args.threshold)

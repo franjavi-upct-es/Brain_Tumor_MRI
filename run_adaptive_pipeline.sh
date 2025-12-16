@@ -22,6 +22,9 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Add root directory to PYTHONPATH so `src` and `tools` are importable
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+
 # 1. Dynamically link EACH 'lib' folder inside 'nvidia/' in site-packages
 # This finds: cudnn, cublas, cuda_runtime, cufft, curand, cusolver, cusparse, nccl, etc.
 export LD_LIBRARY_PATH=$(python -c 'import os, site; P=site.getsitepackages()[0]+"/nvidia"; print(":".join([os.path.join(P, d, "lib") for d in os.listdir(P) if os.path.isdir(os.path.join(P, d, "lib"))]))'):$LD_LIBRARY_PATH

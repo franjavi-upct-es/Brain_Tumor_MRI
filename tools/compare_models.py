@@ -21,9 +21,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from pathlib import Path
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def load_results_from_files(checkpoint_dir="models", reports_dir="reports"):
@@ -501,6 +498,7 @@ def generate_metrics_table(results_dict, output_path="reports/metrics_comparison
     df = pd.DataFrame(rows)
     df.to_csv(output_path, index=False)
     print(f"✅ Metrics table saved: {output_path}")
+
 
 # ==================== EXAMPLE USAGE ====================
 
