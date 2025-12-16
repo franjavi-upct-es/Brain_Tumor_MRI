@@ -4,9 +4,9 @@
 
 ### Key Achievements
 
-- **Sensitivity Improvement**: +11.5 percentage points
-- **False Negative Reduction**: -11.5 percentage points
-- **Final Sensitivity**: 58.6%
+- **Sensitivity Improvement**: +5.7 percentage points
+- **False Negative Reduction**: -5.7 percentage points
+- **Final Sensitivity**: 52.9%
 - **Clinical Target Met**: ⚠️ Not Yet
 
 ## Methodology
@@ -37,10 +37,10 @@
 
 | Metric | Base Model | Fine-Tuned | Focal Loss | Improvement |
 |--------|------------|------------|------------|-------------|
-| Recall | 47.1% | 74.7% | 58.6% | +11.5pp |
-| Specificity | 100.0% | 75.0% | 98.9% | -1.1pp |
-| Precision | 100.0% | 73.9% | 98.1% | -1.9pp |
-| Accuracy | 73.4% | 74.9% | 79.3% | +5.9pp |
+| Recall | 47.1% | 74.7% | 52.9% | +5.7pp |
+| Specificity | 100.0% | 75.0% | 100.0% | 0.0pp |
+| Precision | 100.0% | 73.9% | 100.0% | 0.0pp |
+| Accuracy | 73.4% | 74.9% | 77.1% | +3.7pp |
 
 ## Recommendations
 

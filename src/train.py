@@ -10,6 +10,7 @@ import argparse
 import os
 import json
 import sys
+from pathlib import Path
 
 # GPU Configuration - must be set BEFORE importing TensorFlow
 # NVIDIA GPU is device 0 (Intel iGPU doesn't count as CUDA device)
@@ -25,6 +26,7 @@ from wandb.integration.keras import WandbMetricsLogger, WandbModelCheckpoint
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.reporting import file_fingerprint
 from src.utils import load_config, set_seed
 from src.data import get_datasets
 from src.model import create_model
@@ -156,6 +158,18 @@ def init_wandb_tracking(cfg):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"{cfg['model']['name']}_{cfg['preprocessing']['mode']}_{timestamp}"
 
+    inf_cfg = cfg.get("inference", {})
+    triage_cfg = inf_cfg.get("triage", {})
+    ensemble_cfg = inf_cfg.get("ensemble", {})
+    mc_cfg = inf_cfg.get("mc_dropout", {})
+
+    dataset_fps = {
+        "train": file_fingerprint(Path(cfg["data"].get("train_dir", "")))[0],
+        "val": file_fingerprint(Path(cfg["data"].get("val_dir", "")))[0],
+        "test": file_fingerprint(Path(cfg["data"].get("test_dir", "")))[0],
+        "external": file_fingerprint(Path("data/external_navoneel_medical"))[0],
+    }
+
     # Initialize W&B
     wandb.init(
         project="brain-tumor-mri-portfolio",  # Project name
@@ -184,6 +198,21 @@ def init_wandb_tracking(cfg):
             "random_flip": cfg["augment"]["random_flip"],
             "random_rotate": cfg["augment"]["random_rotate"],
             "random_zoom": cfg["augment"]["random_zoom"],
+            # Inference/decision config
+            "inference_threshold": inf_cfg.get("threshold"),
+            "use_calibration": inf_cfg.get("use_calibration", True),
+            "tta_enabled": inf_cfg.get("tta", False),
+            "tta_samples": inf_cfg.get("tta_samples", 1),
+            "triage_enabled": triage_cfg.get("enabled", False),
+            "triage_band": triage_cfg.get("band"),
+            "triage_max_disagreement": triage_cfg.get("max_disagreement"),
+            "ensemble_enabled": ensemble_cfg.get("enabled", False),
+            "ensemble_strategy": ensemble_cfg.get("strategy", "mean"),
+            "ensemble_members": ensemble_cfg.get("checkpoints", []),
+            "mc_dropout_enabled": mc_cfg.get("enabled", False),
+            "mc_dropout_samples": mc_cfg.get("samples", 1),
+            # Dataset fingerprints for traceability
+            "dataset_fingerprints": dataset_fps,
         },
         tags=["classification", "medical-imaging", "efficientnet", "transfer-learning"],
         notes=f"Medical-grade preprocessing: {cfg['preprocessing']['mode']}",

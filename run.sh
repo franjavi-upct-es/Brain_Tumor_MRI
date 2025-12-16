@@ -30,9 +30,24 @@ cd "$SCRIPT_DIR"
 # Add root directory to PYTHONPATH
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 
+# Enable/disable optional stages via env flags
+ENABLE_TTA="${ENABLE_TTA:-0}"
+ENABLE_WANDB_PIPELINE="${ENABLE_WANDB_PIPELINE:-0}"
+LOG_WANDB_ARG=""
+if [ "$ENABLE_WANDB_PIPELINE" -eq 1 ]; then
+  LOG_WANDB_ARG="--log-wandb"
+fi
+EVAL_TTA_ARGS=""
+if [ "$ENABLE_TTA" -eq 1 ]; then
+  EVAL_TTA_ARGS="--use-tta"
+fi
+
 VENV_DIR=".venv"
 REQUIREMENTS_FILE="requirements.txt"
 CONFIG_FILE="configs/config.yaml"
+EXTERNAL_DATA_MEDICAL="data/external_navoneel_medical"
+REPORTS_DIR="reports"
+CHECKPOINT_DIR="models"
 
 echo -e "${CYAN}================================================================${NC}"
 echo -e "${CYAN}  Brain Tumor MRI: Medical-Grade Production Pipeline          ${NC}"
@@ -48,7 +63,7 @@ echo ""
 # ==========================================
 # 1. Virtual Environment
 # ==========================================
-echo -e "${GREEN}[1/9] Checking virtual environment...${NC}"
+echo -e "${GREEN}[1/12] Checking virtual environment...${NC}"
 if [ ! -d "$VENV_DIR" ]; then
   echo -e "${YELLOW}Creating virtual environment...${NC}"
   python3 -m venv "$VENV_DIR"
@@ -60,7 +75,7 @@ echo ""
 # ==========================================
 # 2. Dependencies
 # ==========================================
-echo -e "${GREEN}[2/9] Installing dependencies...${NC}"
+echo -e "${GREEN}[2/12] Installing dependencies...${NC}"
 pip install --upgrade pip -q
 pip install -r "$REQUIREMENTS_FILE" -q
 
@@ -85,7 +100,7 @@ echo "  -> NVIDIA libraries and binaries linked to the environment."
 # ==========================================
 # 3. Data Download
 # ==========================================
-echo -e "${GREEN}[3/9] Downloading and Merging Datasets...${NC}"
+echo -e "${GREEN}[3/12] Downloading and Merging Datasets...${NC}"
 if [ ! -d "data/train" ]; then
   echo -e "${YELLOW}Raw data not found. Running master download script...${NC}"
   python tools/download_data.py --project_root .
@@ -97,7 +112,7 @@ echo ""
 # ==========================================
 # 4. Medical-Grade Preprocessing
 # ==========================================
-echo -e "${CYAN}[4/9] Medical-Grade Preprocessing Pipeline${NC}"
+echo -e "${CYAN}[4/12] Medical-Grade Preprocessing Pipeline${NC}"
 echo -e "${CYAN}===========================================${NC}"
 
 # Helper function to preprocess with medical pipeline
@@ -152,7 +167,7 @@ fi
 # ==========================================
 # 5. Base Model Training
 # ==========================================
-echo -e "${GREEN}[5/9] Training Base Model (EfficientNetV2)...${NC}"
+echo -e "${GREEN}[5/12] Training Base Model (EfficientNetV2)...${NC}"
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/.venv/lib
 
 if [ ! -f "models/best.keras" ]; then
@@ -166,10 +181,15 @@ echo -e "${GREEN}Evaluating Base Model...${NC}"
 python src/eval.py --config "$CONFIG_FILE"
 echo ""
 
+# Baseline Error Analysis (non-blocking)
+echo -e "${GREEN}Running Baseline Error Analysis...${NC}"
+python src/error_analysis.py || echo -e "${YELLOW}Skipping error analysis (non-blocking).${NC}"
+echo ""
+
 # ==========================================
 # 6. Comparative Analysis (Optional)
 # ==========================================
-echo -e "${CYAN}[6/9] Comparative Analysis: Medical vs Legacy${NC}"
+echo -e "${CYAN}[6/12] Comparative Analysis: Medical vs Legacy${NC}"
 echo -e "${CYAN}=============================================${NC}"
 
 # Check if legacy preprocessing exists for comparison
@@ -212,7 +232,7 @@ echo ""
 # ==========================================
 # 7. Fine-Tuning (Sensitivity Improvement)
 # ==========================================
-echo -e "${GREEN}[7/9] Fine-Tuning for External Data Adaptation...${NC}"
+echo -e "${GREEN}[7/12] Fine-Tuning for External Data Adaptation...${NC}"
 EXTERNAL_DATA_MEDICAL="data/external_navoneel_medical"
 
 if [ ! -f "models/finetuned_navoneel.keras" ]; then
@@ -226,24 +246,80 @@ fi
 echo ""
 
 # ==========================================
-# 8. External Validation
+# 8. External Validation (Base + Fine-Tuned/Ensemble)
 # ==========================================
-echo -e "${GREEN}[8/9] External Validation on Navoneel Dataset...${NC}"
+echo -e "${GREEN}[8/12] External Validation on Navoneel Dataset...${NC}"
 
+# 8a) Base model (temporarily hide fine-tuned to force base load)
+if [ -f "${CHECKPOINT_DIR}/finetuned_navoneel.keras" ]; then
+  mv "${CHECKPOINT_DIR}/finetuned_navoneel.keras" "${CHECKPOINT_DIR}/finetuned_navoneel.keras.bak"
+fi
 python tools/evaluate_external.py \
   --config "$CONFIG_FILE" \
-  --data "$EXTERNAL_DATA_MEDICAL"
+  --data "$EXTERNAL_DATA_MEDICAL" \
+  --split full \
+  --fn-topk 12 \
+  $EVAL_TTA_ARGS \
+  $LOG_WANDB_ARG || true
+if [ -f "${CHECKPOINT_DIR}/finetuned_navoneel.keras.bak" ]; then
+  mv "${CHECKPOINT_DIR}/finetuned_navoneel.keras.bak" "${CHECKPOINT_DIR}/finetuned_navoneel.keras"
+fi
+
+# 8b) Fine-tuned/ensemble model
+python tools/evaluate_external.py \
+  --config "$CONFIG_FILE" \
+  --data "$EXTERNAL_DATA_MEDICAL" \
+  --split full \
+  --fn-topk 12 \
+  $EVAL_TTA_ARGS \
+  $LOG_WANDB_ARG
 
 echo ""
 
 # ==========================================
-# 9. Threshold Optimization
+# 9. Adaptive Retraining (Focal) and Optional TTA Audit
 # ==========================================
-echo -e "${GREEN}[9/9] Optimizing Detection Threshold...${NC}"
+echo -e "${GREEN}[9/12] Adaptive Retraining with Focal Loss...${NC}"
+if [ ! -f "${CHECKPOINT_DIR}/focal_best.keras" ]; then
+  python tools/adaptive_retrain.py \
+    --config "${CONFIG_FILE}" \
+    --external_data "${EXTERNAL_DATA_MEDICAL}"
+else
+  echo -e "${YELLOW}Focal model already exists, skipping retrain.${NC}"
+fi
 
+if [ "$ENABLE_TTA" -eq 1 ]; then
+  echo -e "${YELLOW}Running optional TTA evaluation (5 samples)...${NC}"
+  python tools/adaptive_retrain.py \
+    --config "${CONFIG_FILE}" \
+    --external_data "${EXTERNAL_DATA_MEDICAL}" \
+    --skip_training \
+    --use_tta \
+    --n_tta 5 || true
+else
+  echo -e "${CYAN}TTA evaluation skipped (ENABLE_TTA=0).${NC}"
+fi
+echo ""
+
+# ==========================================
+# 10. Threshold Optimization
+# ==========================================
+echo -e "${GREEN}[10/12] Optimizing Detection Threshold...${NC}"
 python tools/optimize_threshold.py \
   --config "$CONFIG_FILE" \
-  --data "$EXTERNAL_DATA_MEDICAL"
+  --data "$EXTERNAL_DATA_MEDICAL" \
+  $LOG_WANDB_ARG
+
+echo ""
+
+# ==========================================
+# 11. Comparative Dashboards
+# ==========================================
+echo -e "${GREEN}[11/12] Generating Comparative Dashboards...${NC}"
+python tools/compare_models.py \
+  --config "$CONFIG_FILE" \
+  --output "${REPORTS_DIR}" \
+  --checkpoint_dir "${CHECKPOINT_DIR}" || true
 
 echo ""
 
@@ -257,6 +333,7 @@ echo ""
 echo -e "${GREEN}Generated Models:${NC}"
 echo -e "  1. Base Model:          ${YELLOW}models/best.keras${NC}"
 echo -e "  2. Fine-Tuned Model:    ${YELLOW}models/finetuned_navoneel.keras${NC}"
+echo -e "  3. Focal Model:         ${YELLOW}models/focal_best.keras${NC}"
 echo ""
 echo -e "${GREEN}Preprocessing Applied:${NC}"
 echo -e "  ✓ N4 Bias Field Correction (removes scanner artifacts)"
@@ -270,6 +347,9 @@ echo -e "  - Confusion Matrices:       ${YELLOW}reports/cm.png, cm_norm.png${NC}
 echo -e "  - ROC Curves:               ${YELLOW}reports/roc_curves.png${NC}"
 echo -e "  - Calibration Metrics:      ${YELLOW}reports/calibration_metrics.json${NC}"
 echo -e "  - Training History:         ${YELLOW}reports/training_history.json${NC}"
+echo -e "  - External Results (Base):  ${YELLOW}models/base_external_results_full.json${NC}"
+echo -e "  - External Results (FT/En): ${YELLOW}models/finetuned_external_results_full.json${NC} (or ensemble_*.json)"
+echo -e "  - Threshold Search:         ${YELLOW}reports/threshold_optimization.json${NC}"
 echo ""
 echo -e "${GREEN}Data Directories:${NC}"
 echo -e "  - Training (Medical):       ${YELLOW}data/train_medical/${NC}"

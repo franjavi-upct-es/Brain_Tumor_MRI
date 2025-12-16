@@ -1,0 +1,46 @@
+{
+  "git_commit": "8f9e533cdfd62fcde567a4160731b6b805d01b4a",
+  "config_path": "configs/config.yaml",
+  "config_hash": "704e33680c61",
+  "dataset": {
+    "path": "data/external_navoneel_medical",
+    "fingerprint": "253:754121aa947f",
+    "num_images": 253
+  },
+  "source": "optimize_threshold.py",
+  "model": "Ensemble",
+  "ensemble_members": [
+    "finetuned_navoneel.keras",
+    "best.keras"
+  ],
+  "ensemble_strategy": "mean",
+  "model_paths": [
+    "models/finetuned_navoneel.keras",
+    "models/best.keras"
+  ],
+  "use_calibration": true,
+  "temperature": 7.077272415161133,
+  "preprocessing_mode": "medical",
+  "tta": {
+    "enabled": false,
+    "samples": 5
+  },
+  "target_recall": 0.9,
+  "max_fp_rate": 0.1,
+  "previous_threshold": 0.6000000000000002,
+  "recommended_threshold": 0.6000000000000002,
+  "reason": "max recall subject to FP rate<=0.10 (target recall not reached)",
+  "counts": {
+    "tn": 83,
+    "fp": 9,
+    "fn": 36,
+    "tp": 51
+  },
+  "metrics": {
+    "recall": 0.5862068965517241,
+    "precision": 0.85,
+    "specificity": 0.9021739130434783,
+    "fp_rate": 0.09782608695652174,
+    "fn_rate": 0.41379310344827586
+  }
+}

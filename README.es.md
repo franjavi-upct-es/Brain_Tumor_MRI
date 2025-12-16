@@ -309,11 +309,23 @@ run.bat
 1. Configura el entorno de Python.
 2. Descarga el dataset principal ([MasoudNickparvar](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)).
 3. Aplica **preprocesamiento de grado médico** (N4 + BET + Nyúl + CLAHE).
-4. **Entrena** el modelo base multiclase con seguimiento de Weights & Biases.
-5. **Evalúa** el modelo base en su conjunto de prueba.
-6. Descarga un **Dataset Externo** ([Navoneel](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)) para probar la generalización.
-7. Realiza **Fine-Tuning** usando el dataset externo para adaptar el modelo y mejorar la sensibilidad.
-8. **Evalúa** el modelo fine-tuned en los datos externos y calcula el **Umbral Óptimo** para balancear Falsos Positivos/Negativos.
+4. Entrena el modelo base multiclase (**con seguimiento W&B**) y lo evalúa en el test interno.
+5. Ejecuta dashboards de análisis de errores.
+6. Hace fine-tuning sobre el dataset externo ([Navoneel](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)).
+7. Evalúa modelos **base** y **fine-tuned/ensemble+triage** en el set externo, y permite auditar con focal/TTA opcional.
+8. Optimiza el umbral de decisión clínico y genera dashboards comparativos.
+
+Para registrar todo el pipeline en Weights & Biases:
+
+```bash
+ENABLE_WANDB_PIPELINE=1 ./run.sh
+```
+
+Opcional: activar Test-Time Augmentation durante la auditoría focal:
+
+```bash
+ENABLE_TTA=1 ./run.sh
+```
 
 **Tiempo estimado en RTX 5060 8GB:** ~35 minutos (pipeline completo).
 
@@ -644,9 +656,9 @@ curl -X POST "http://localhost:8000/predict?threshold=0.65" \
 ## Mejoras Futuras
 
 ### Corto plazo (En Progreso)
-- [ ] Implementación de Focal Loss para mejor manejo de desbalanceo de clases
-- [ ] Test Time Augmentation (TTA) para inferencia de ensemble
-- [ ] Estimación de incertidumbre con MC Dropout
+- [x] Implementación de Focal Loss para mejor manejo de desbalanceo de clases (reentreno opcional en `run.sh`)
+- [x] Test Time Augmentation (TTA) para inferencia de ensemble (toggle opcional en `run.sh`)
+- [x] Estimación de incertidumbre con MC Dropout (config `inference.mc_dropout`)
 
 ### Mediano plazo
 - [ ] Extensión 2.5D: Entrada multi-corte para contexto volumétrico

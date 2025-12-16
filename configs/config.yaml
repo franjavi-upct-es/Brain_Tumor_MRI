@@ -79,12 +79,24 @@ log:
 inference:
   tta: false
   tta_samples: 5
-  threshold: 0.20000000000000004
+  threshold: 0.6000000000000002
   target_recall: 0.9
   max_fp_rate: 0.1
   use_calibration: true
-  last_threshold_reason: fallback to best F1 because FP constraint was violated at
-    all thresholds
+  ensemble:
+    enabled: true
+    strategy: mean
+    checkpoints:
+    - finetuned_navoneel.keras
+    - best.keras
+  triage:
+    enabled: true
+    band: 0.05
+    max_disagreement: 0.1
+  mc_dropout:
+    enabled: false
+    samples: 10
+  last_threshold_reason: max recall subject to FP rate<=0.10 (target recall not reached)
 calibration:
   enabled: true
   max_iters: 200
