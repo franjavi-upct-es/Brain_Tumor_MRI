@@ -15,33 +15,37 @@
 # - If your MRI images are grayscale, Keras loaders can output 1-channel or we
 #   can convert to RGB (3-channel) explicitly; most ImagenNet backbones expect 3.
 
-import os
 from typing import Dict
 
 from src.utils import walk_class_counts
+
 
 # Preprocessing function - exported for use by other modules (e.g., train_finetune.py)
 def _get_preprocess_fn(model_name: str):
     """Return the appropriate Keras preprocess function for the chosen backbone."""
     import tensorflow as tf
+
     name = (model_name or "").lower()
     if "v2" in name:
         return tf.keras.applications.efficientnet_v2.preprocess_input
     else:
         return tf.keras.applications.efficientnet.preprocess_input
 
+
 # NOTE: Augmentation is done inside the model (model.py) for main training.
 # This function is kept for external tools that need preprocessing.
+
 
 def get_datasets(cfg: Dict):
     """
     Create (train, val, test) tf.data datasets suitable for Keras model.fit().
     Return: (train_ds, val_ds, test_ds, class_names, class_weights_dict or None)
-    
+
     NOTE: Preprocessing and augmentation are done INSIDE the model (model.py),
     so here we only load and batch the data efficiently.
     """
     import tensorflow as tf
+
     AUTOTUNE = tf.data.AUTOTUNE
     img_size = cfg["data"]["image_size"]
     batch = cfg["train"]["batch_size"]
@@ -53,28 +57,52 @@ def get_datasets(cfg: Dict):
     if cfg["data"].get("auto_split", False):
         root_dir = cfg["data"]["root_dir"]
         train = tf.keras.preprocessing.image_dataset_from_directory(
-            root_dir, image_size=(img_size, img_size), batch_size=batch,
-            label_mode="categorical", validation_split=cfg["data"].get("valid_split", 0.2),
-            subset="training", seed=42, shuffle=True, color_mode="rgb" if channels == 3 else "grayscale"
+            root_dir,
+            image_size=(img_size, img_size),
+            batch_size=batch,
+            label_mode="categorical",
+            validation_split=cfg["data"].get("valid_split", 0.2),
+            subset="training",
+            seed=42,
+            shuffle=True,
+            color_mode="rgb" if channels == 3 else "grayscale",
         )
         val = tf.keras.preprocessing.image_dataset_from_directory(
-            root_dir, image_size=(img_size, img_size), batch_size=batch,
-            label_mode="categorical", validation_split=cfg["data"].get("valid_split", 0.2),
-            subset="validation", seed=42, shuffle=True, color_mode="rgb" if channels == 3 else "grayscale"
+            root_dir,
+            image_size=(img_size, img_size),
+            batch_size=batch,
+            label_mode="categorical",
+            validation_split=cfg["data"].get("valid_split", 0.2),
+            subset="validation",
+            seed=42,
+            shuffle=True,
+            color_mode="rgb" if channels == 3 else "grayscale",
         )
         test = val
     else:
         train = tf.keras.preprocessing.image_dataset_from_directory(
-            cfg["data"]["train_dir"], image_size=(img_size, img_size), batch_size=batch,
-            label_mode="categorical", shuffle=True, color_mode="rgb" if channels == 3 else "grayscale"
+            cfg["data"]["train_dir"],
+            image_size=(img_size, img_size),
+            batch_size=batch,
+            label_mode="categorical",
+            shuffle=True,
+            color_mode="rgb" if channels == 3 else "grayscale",
         )
         val = tf.keras.preprocessing.image_dataset_from_directory(
-            cfg["data"]["val_dir"], image_size=(img_size, img_size), batch_size=batch,
-            label_mode="categorical", shuffle=True, color_mode="rgb" if channels == 3 else "grayscale"
+            cfg["data"]["val_dir"],
+            image_size=(img_size, img_size),
+            batch_size=batch,
+            label_mode="categorical",
+            shuffle=True,
+            color_mode="rgb" if channels == 3 else "grayscale",
         )
         test = tf.keras.preprocessing.image_dataset_from_directory(
-            cfg["data"]["test_dir"], image_size=(img_size, img_size), batch_size=batch,
-            label_mode="categorical", shuffle=True, color_mode="rgb" if channels == 3 else "grayscale"
+            cfg["data"]["test_dir"],
+            image_size=(img_size, img_size),
+            batch_size=batch,
+            label_mode="categorical",
+            shuffle=True,
+            color_mode="rgb" if channels == 3 else "grayscale",
         )
 
     class_names = train.class_names
@@ -86,17 +114,19 @@ def get_datasets(cfg: Dict):
     # Optional MixUp regularization (must be done here, before model)
     if mixup_alpha > 0:
         import tensorflow_probability as tfp
+
         @tf.function
         def mix_map(x, y):
             bs = tf.shape(x)[0]
             dist = tfp.distributions.Beta(mixup_alpha, mixup_alpha)
-            l = tf.reshape(dist.sample([bs]), (bs,1,1,1))
+            l = tf.reshape(dist.sample([bs]), (bs, 1, 1, 1))
             idx = tf.random.shuffle(tf.range(bs))
             x2 = tf.gather(x, idx)
             y2 = tf.gather(y, idx)
             x = x * l + x2 * (1 - l)
             y = y * tf.reshape(l, (bs, 1)) + y2 * (1 - tf.reshape(l, (bs, 1)))
             return x, y
+
         train = train.map(mix_map, num_parallel_calls=AUTOTUNE).prefetch(AUTOTUNE)
 
     val = val.prefetch(buffer_size=AUTOTUNE)
@@ -105,10 +135,13 @@ def get_datasets(cfg: Dict):
     # 3) Optional class weights (derived from filesystem counts for training set)
     cw = None
     if cfg["train"].get("use_class_weights", False):
-        from utils import compute_class_weights
+        from src.utils import compute_class_weights
+
         counts = walk_class_counts(
-            cfg["data"].get("root_dir") if cfg["data"].get("auto_split", False) else cfg["data"]["train_dir"],
-            class_names
+            cfg["data"].get("root_dir")
+            if cfg["data"].get("auto_split", False)
+            else cfg["data"]["train_dir"],
+            class_names,
         )
         cw_map = compute_class_weights(counts)
         # Keras expects an index -> weight dict: {class_index: weight}

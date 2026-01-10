@@ -20,16 +20,26 @@ def create_keras_model(cfg: Dict, num_classes: int):
     name = (cfg["model"].get("name","efficientnet_v2_b0")).lower()
     img_size = cfg["data"]["image_size"]
     channels = cfg["data"].get("channels", 3)
+    aug_cfg = cfg.get("augment", {})
+
+    def cap(value: float, max_value: float) -> float:
+        """Guardrail to avoid unrealistic augmentations for medical images."""
+        return float(min(max(value, 0.0), max_value))
+
+    rotation = cap(aug_cfg.get("random_rotate", 0.0), 0.12)  # <= ~43°
+    zoom = cap(aug_cfg.get("random_zoom", 0.0), 0.25)
+    brightness = cap(aug_cfg.get("random_brightness", 0.0), 0.2)
+    contrast = cap(aug_cfg.get("random_contrast", 0.0), 0.2)
 
     inputs = tf.keras.Input(shape=(img_size, img_size, channels), name="image")
 
     # In-graph augmentation: ensures saved checkpoints include the stochastic augment.
     aug = tf.keras.Sequential(name="augment", layers=[
-        tf.keras.layers.RandomFlip("horizontal") if cfg["augment"].get("random_flip", True) else tf.keras.layers.Layer(),
-        tf.keras.layers.RandomRotation(cfg["augment"].get("random_rotate",0.0)) if cfg["augment"].get("random_rotate",0.0) else tf.keras.layers.Layer(),
-        tf.keras.layers.RandomZoom(cfg["augment"].get("random_zoom",0.0)) if cfg["augment"].get("random_zoom",0.0) else tf.keras.layers.Layer(),
-        tf.keras.layers.RandomBrightness(cfg["augment"].get("random_brightness",0.0)) if cfg["augment"].get("random_brightness",0.0) else tf.keras.layers.Layer(),
-        tf.keras.layers.RandomContrast(cfg["augment"].get("random_contrast",0.0)) if cfg["augment"].get("random_contrast",0.0) else tf.keras.layers.Layer(),
+        tf.keras.layers.RandomFlip("horizontal") if aug_cfg.get("random_flip", True) else tf.keras.layers.Layer(),
+        tf.keras.layers.RandomRotation(rotation) if rotation else tf.keras.layers.Layer(),
+        tf.keras.layers.RandomZoom(zoom) if zoom else tf.keras.layers.Layer(),
+        tf.keras.layers.RandomBrightness(brightness) if brightness else tf.keras.layers.Layer(),
+        tf.keras.layers.RandomContrast(contrast) if contrast else tf.keras.layers.Layer(),
     ])
     x = aug(inputs, training=True)  # training=True keeps aug active even if model is later used for inference
 

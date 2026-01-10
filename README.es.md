@@ -19,12 +19,12 @@ El objetivo es garantizar la reproducibilidad, el rendimiento y la interpretabil
 
 ### Métricas Clave de Rendimiento
 
-| Métrica | Test Interno | Validación Externa | Relevancia Clínica |
-|---------|--------------|--------------------|--------------------|
-| **Accuracy** | 99.2% | 84.0% | Alta fiabilidad entre datasets |
-| **Sensibilidad (Recall)** | 97.8% | 91.0% | Minimiza tumores no detectados (crítico) |
-| **Especificidad** | 99.5% | 96.0% | Reduce falsas alarmas |
-| **Tiempo de Inferencia** | ~195ms | ~195ms | Capaz de despliegue en tiempo real |
+| Métrica                   | Test Interno | Validación Externa | Relevancia Clínica                       |
+| ------------------------- | ------------ | ------------------ | ---------------------------------------- |
+| **Accuracy**              | 99.2%        | 84.0%              | Alta fiabilidad entre datasets           |
+| **Sensibilidad (Recall)** | 97.8%        | 91.0%              | Minimiza tumores no detectados (crítico) |
+| **Especificidad**         | 99.5%        | 96.0%              | Reduce falsas alarmas                    |
+| **Tiempo de Inferencia**  | ~195ms       | ~195ms             | Capaz de despliegue en tiempo real       |
 
 **Logro Clave:** El pipeline de preprocesamiento de grado médico proporciona una **mejora del +12.8% en accuracy** en validación cruzada entre datasets mediante corrección de sesgo N4, normalización Nyúl y mejora CLAHE.
 
@@ -96,6 +96,7 @@ lo que da más peso a las clases minoritarias en la función de pérdida, asegur
 A diferencia del preprocesamiento estándar de visión por computadora, este framework implementa **técnicas de neuroimagen clínica** que son críticas para la generalización entre datasets:
 
 #### 1. Corrección de Campo de Sesgo N4 (Tustison et al., 2010)
+
 Los escáneres de RM introducen variaciones de intensidad suaves de baja frecuencia (campo de sesgo) que son artefactos específicos del escáner. Aproximamos el algoritmo N4ITK mediante suavizado gaussiano para estimar y eliminar este sesgo:
 
 $$
@@ -105,11 +106,13 @@ $$
 **Impacto:** +8.3% de mejora en accuracy entre datasets.
 
 #### 2. Eliminación de Cráneo BET (Smith, 2002)
+
 El tejido no cerebral (cráneo, ojos, cuero cabelludo) confunde la clasificación. Implementamos extracción cerebral inspirada en FSL usando umbralización Otsu seguida de operaciones morfológicas para aislar el tejido cerebral.
 
 **Impacto:** +3.1% de accuracy, reduce falsos positivos por artefactos del cráneo.
 
 #### 3. Normalización de Intensidad Nyúl (Nyúl & Udupa, 2000)
+
 Diferentes escáneres y protocolos producen distribuciones de intensidad incomparables. Estandarizamos mediante mapeo de histograma basado en percentiles:
 
 $$
@@ -121,6 +124,7 @@ donde $p_1$ y $p_{99}$ son los percentiles 1 y 99 de las intensidades no nulas.
 **Impacto:** +5.4% de accuracy en validación externa (**crítico para generalización**).
 
 #### 4. Mejora CLAHE
+
 La Ecualización Adaptativa de Histograma con Límite de Contraste mejora el contraste local, haciendo los límites tumorales más visibles:
 
 $$
@@ -131,13 +135,13 @@ $$
 
 #### Estudio de Ablación del Preprocesamiento
 
-| Configuración | Acc Interna | Acc Externa | Δ desde Raw |
-|---------------|-------------|-------------|-------------|
-| Imágenes sin procesar | 87.3% | 71.2% | — |
-| + Recorte simple (legacy) | 94.1% | 74.8% | +3.6% |
-| + Corrección de sesgo N4 | 96.8% | 79.1% | +7.9% |
-| + Normalización Nyúl | 98.4% | 82.5% | +11.3% |
-| **+ Pipeline médico completo** | **99.2%** | **84.0%** | **+12.8%** |
+| Configuración                  | Acc Interna | Acc Externa | Δ desde Raw |
+| ------------------------------ | ----------- | ----------- | ----------- |
+| Imágenes sin procesar          | 87.3%       | 71.2%       | —           |
+| + Recorte simple (legacy)      | 94.1%       | 74.8%       | +3.6%       |
+| + Corrección de sesgo N4       | 96.8%       | 79.1%       | +7.9%       |
+| + Normalización Nyúl           | 98.4%       | 82.5%       | +11.3%      |
+| **+ Pipeline médico completo** | **99.2%**   | **84.0%**   | **+12.8%**  |
 
 **Conclusión:** El preprocesamiento de grado médico no es opcional—es el principal impulsor del rendimiento robusto entre datasets.
 
@@ -197,7 +201,7 @@ $$
 \alpha_k=\frac{1}{Z}\sum_i\sum_j\frac{\partial y^c}{\partial A_{ij}^k}
 $$
 
-3. La combinación ponderada da el mapa de calor de localización:
+1. La combinación ponderada da el mapa de calor de localización:
 
 $$
 L_{\text{Grad-CAM}}^c=\text{ReLU}\left(\sum_k\alpha_kA^k\right)
@@ -309,11 +313,23 @@ run.bat
 1. Configura el entorno de Python.
 2. Descarga el dataset principal ([MasoudNickparvar](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)).
 3. Aplica **preprocesamiento de grado médico** (N4 + BET + Nyúl + CLAHE).
-4. **Entrena** el modelo base multiclase con seguimiento de Weights & Biases.
-5. **Evalúa** el modelo base en su conjunto de prueba.
-6. Descarga un **Dataset Externo** ([Navoneel](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)) para probar la generalización.
-7. Realiza **Fine-Tuning** usando el dataset externo para adaptar el modelo y mejorar la sensibilidad.
-8. **Evalúa** el modelo fine-tuned en los datos externos y calcula el **Umbral Óptimo** para balancear Falsos Positivos/Negativos.
+4. Entrena el modelo base multiclase (**con seguimiento W&B**) y lo evalúa en el test interno.
+5. Ejecuta dashboards de análisis de errores.
+6. Hace fine-tuning sobre el dataset externo ([Navoneel](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)).
+7. Evalúa modelos **base** y **fine-tuned/ensemble+triage** en el set externo, y permite auditar con focal/TTA opcional.
+8. Optimiza el umbral de decisión clínico y genera dashboards comparativos.
+
+Para registrar todo el pipeline en Weights & Biases:
+
+```bash
+ENABLE_WANDB_PIPELINE=1 ./run.sh
+```
+
+Opcional: activar Test-Time Augmentation durante la auditoría focal:
+
+```bash
+ENABLE_TTA=1 ./run.sh
+```
 
 **Tiempo estimado en RTX 5060 8GB:** ~35 minutos (pipeline completo).
 
@@ -331,13 +347,13 @@ Inicialmente, el modelo base mostró alta especificidad (0 Falsos Positivos) per
 
 Aplicamos un proceso de **fine-tuning con máscara binaria** con pérdida híbrida personalizada y **optimización de umbral** para maximizar la utilidad clínica.
 
-| **Métrica**                | **Modelo Base** | **Modelo Optimizado (Umbral 0.65)** |
-| -------------------------- | --------------- | ----------------------------------- |
-| **Accuracy**               | 85%             | 84%                                 |
-| **Recall (Sensibilidad)**  | 70%             | **91%** ✅                          |
-| **Falsos Negativos**       | 26 (Alto Riesgo)| **8 (Bajo Riesgo)** ✅              |
-| **Falsos Positivos**       | 0               | 20 (Aceptable)                      |
-| **Especificidad**          | 100%            | 96%                                 |
+| **Métrica**               | **Modelo Base**  | **Modelo Optimizado (Umbral 0.65)** |
+| ------------------------- | ---------------- | ----------------------------------- |
+| **Accuracy**              | 85%              | 84%                                 |
+| **Recall (Sensibilidad)** | 70%              | **91%** ✅                          |
+| **Falsos Negativos**      | 26 (Alto Riesgo) | **8 (Bajo Riesgo)** ✅              |
+| **Falsos Positivos**      | 0                | 20 (Aceptable)                      |
+| **Especificidad**         | 100%             | 96%                                 |
 
 **Implicación Clínica:** El pipeline optimizado transformó exitosamente el modelo de un clasificador "conservador" a una **herramienta de screening altamente sensible**, capaz de detectar anomalías incluso en distribuciones de datos que no ha visto explícitamente antes, priorizando la seguridad del paciente minimizando tumores no detectados (falsos negativos).
 
@@ -418,6 +434,7 @@ python src/train.py --config configs/config.yaml
 ```
 
 **Detalles del entrenamiento:**
+
 - Entrenamiento en dos etapas: backbone congelado (5 épocas) → fine-tuning completo (30 épocas)
 - Optimizador: AdamW con programación de decaimiento coseno
 - Todos los experimentos registrados en Weights & Biases
@@ -430,6 +447,7 @@ python src/eval.py --config configs/config.yaml
 ```
 
 Genera reportes de evaluación completos en `reports/`:
+
 - Matrices de confusión (raw y normalizada)
 - Curvas ROC y Precision-Recall
 - Métricas de calibración (ECE, MCE, Brier Score)
@@ -510,6 +528,7 @@ El análisis exhaustivo de errores revela patrones sistemáticos en los fallos d
 ![Dashboard de Errores](reports/error_comparison_dashboard.png)
 
 **Hallazgos Clave:**
+
 - Tasa de error: 1.08% en conjunto de prueba (15 de 1,392 imágenes)
 - Clases más confundidas: Meningioma ↔ Glioma (5 casos)
 - 40% de errores muestran alta confianza (>80%), indicando oportunidades de calibración
@@ -518,12 +537,11 @@ El análisis exhaustivo de errores revela patrones sistemáticos en los fallos d
 ![Galería de Errores](reports/error_gallery.png)
 
 **Hoja de Ruta de Mejoras Basada en el Análisis:**
+
 1. Implementar Focal Loss para manejar ejemplos difíciles (clase Meningioma)
 2. Aumentar el data augmentation para morfologías subrepresentadas
 3. Añadir Test Time Augmentation (TTA) para robustez de ensemble
 4. Aplicar Label Smoothing más agresivo (ε=0.1) para reducir sobreconfianza
-
-Análisis completo disponible en `notebooks/error_analysis.ipynb`.
 
 ---
 
@@ -589,6 +607,7 @@ curl -X POST "http://localhost:8000/predict?threshold=0.65" \
 ```
 
 **Ejemplo de respuesta:**
+
 ```json
 {
   "predicted_class": "glioma",
@@ -606,34 +625,37 @@ curl -X POST "http://localhost:8000/predict?threshold=0.65" \
 ### Problemas Comunes
 
 1. **`ModuleNotFoundError: No module named 'src'`**
-   
+
    Asegúrate de ejecutar los scripts desde la raíz del proyecto o establece PYTHONPATH:
+
    ```bash
    export PYTHONPATH=/ruta/a/Brain_Tumor_MRI:$PYTHONPATH
    ```
 
 2. **Errores de la API de Kaggle**
-   
+
    Verifica que tu `kaggle.json` esté correctamente ubicado (`~/.kaggle/kaggle.json`) y tenga los permisos adecuados (chmod 600).
 
 3. **GPU no detectada**
-   
+
    Verifica la instalación de CUDA y la compatibilidad GPU de TensorFlow:
+
    ```bash
    python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
    ```
 
 4. **Sin Memoria (OOM)**
-   
+
    Reduce el batch size en `configs/config.yaml`:
+
    ```yaml
    train:
-     batch_size: 16  # Reducir de 32 para 8GB VRAM
-     mixed_precision: true  # Habilitar FP16 (ahorra ~40% memoria)
+     batch_size: 16 # Reducir de 32 para 8GB VRAM
+     mixed_precision: true # Habilitar FP16 (ahorra ~40% memoria)
    ```
 
 5. **Problemas de inicio de sesión en Weights & Biases**
-   
+
    ```bash
    wandb login --relogin
    # Pega tu API key de wandb.ai/authorize
@@ -644,16 +666,19 @@ curl -X POST "http://localhost:8000/predict?threshold=0.65" \
 ## Mejoras Futuras
 
 ### Corto plazo (En Progreso)
-- [ ] Implementación de Focal Loss para mejor manejo de desbalanceo de clases
-- [ ] Test Time Augmentation (TTA) para inferencia de ensemble
-- [ ] Estimación de incertidumbre con MC Dropout
+
+- [x] Implementación de Focal Loss para mejor manejo de desbalanceo de clases (reentreno opcional en `run.sh`)
+- [x] Test Time Augmentation (TTA) para inferencia de ensemble (toggle opcional en `run.sh`)
+- [x] Estimación de incertidumbre con MC Dropout (config `inference.mc_dropout`)
 
 ### Mediano plazo
+
 - [ ] Extensión 2.5D: Entrada multi-corte para contexto volumétrico
 - [ ] Módulo de segmentación: Decodificador U-Net para máscaras tumorales
 - [ ] Fusión multimodal: Integración de secuencias T1 + T2 + FLAIR
 
 ### Largo plazo
+
 - [ ] Arquitectura 3D completa: Swin UNETR para segmentación volumétrica
 - [ ] Participación y benchmarking en el desafío BraTS
 - [ ] Estudio de validación clínica con anotaciones de radiólogos
@@ -664,13 +689,13 @@ curl -X POST "http://localhost:8000/predict?threshold=0.65" \
 
 ### Artículos Clave
 
-1. **Tan, M., & Le, Q. (2021).** "EfficientNetV2: Smaller Models and Faster Training." *ICML 2021*.
-2. **Nyúl, L. G., & Udupa, J. K. (2000).** "On Standardizing the MR Image Intensity Scale." *Magnetic Resonance in Medicine*, 42(6), 1072-1081.
-3. **Smith, S. M. (2002).** "Fast Robust Automated Brain Extraction." *Human Brain Mapping*, 17(3), 143-155.
-4. **Tustison, N. J., et al. (2010).** "N4ITK: Improved N3 Bias Correction." *IEEE Transactions on Medical Imaging*, 29(6), 1310-1320.
-5. **Guo, C., et al. (2017).** "On Calibration of Modern Neural Networks." *ICML 2017*.
-6. **Selvaraju, R. R., et al. (2017).** "Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization." *ICCV 2017*.
-7. **Zhang, H., et al. (2018).** "mixup: Beyond Empirical Risk Minimization." *ICLR 2018*.
+1. **Tan, M., & Le, Q. (2021).** "EfficientNetV2: Smaller Models and Faster Training." _ICML 2021_.
+2. **Nyúl, L. G., & Udupa, J. K. (2000).** "On Standardizing the MR Image Intensity Scale." _Magnetic Resonance in Medicine_, 42(6), 1072-1081.
+3. **Smith, S. M. (2002).** "Fast Robust Automated Brain Extraction." _Human Brain Mapping_, 17(3), 143-155.
+4. **Tustison, N. J., et al. (2010).** "N4ITK: Improved N3 Bias Correction." _IEEE Transactions on Medical Imaging_, 29(6), 1310-1320.
+5. **Guo, C., et al. (2017).** "On Calibration of Modern Neural Networks." _ICML 2017_.
+6. **Selvaraju, R. R., et al. (2017).** "Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization." _ICCV 2017_.
+7. **Zhang, H., et al. (2018).** "mixup: Beyond Empirical Risk Minimization." _ICLR 2018_.
 
 ### Datasets
 

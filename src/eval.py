@@ -7,9 +7,10 @@
 
 import argparse, os, json
 import numpy as np
+from sklearn.metrics import classification_report, confusion_matrix
+
 from src.utils import load_config, set_seed
 from src.data import get_datasets
-from sklearn.metrics import classification_report, confusion_matrix
 
 def load_temperature(ckpt_dir: str) -> float:
     """Read temperature scalar from '{ckpt_dir}/temperature.json' if present."""
@@ -71,10 +72,10 @@ def main(cfg_path: str):
     np.savetxt(os.path.join("reports", "confusion_matrix.csv"), cm, fmt="%d", delimiter=",")
 
     # Import plotting helpers
-    from plots import (
+    from src.plots import (
         plot_confusion_matrix,
         plot_roc_pr_curves,
-        save_calibration_report
+        save_calibration_report,
     )
 
     # Save CM (raw + normalized)
