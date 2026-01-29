@@ -484,8 +484,7 @@ class MRIPreprocessor:
         if img.shape[:2] != self.target_size:
             img = cv2.resize(img, self.target_size,
                              interpolation=cv2.INTER_LANCZOS4)
-            metadata["stages"]["resize"] = f"{
-                original_shape[:2]} -> {self.target_size}"
+            metadata["stages"]["resize"] = f"{original_shape[:2]} -> {self.target_size}"
 
         # Quality metrics
         gray_final = (
@@ -530,11 +529,9 @@ def process_dataset_medical_grade(
     output_path.mkdir(parents=True, exist_ok=True)
 
     valid_exts = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
-    files = [p for p in input_path.rglob(
-        "*") if p.suffix.lower() in valid_exts]
+    files = [p for p in input_path.rglob("*") if p.suffix.lower() in valid_exts]
 
-    print(f"[INFO] Processing {
-          len(files)} images with medical-grade pipeline...")
+    print(f"[INFO] Processing {len(files)} images with medical-grade pipeline...")
     print(f"[CONFIG] {config}")
 
     stats = {"total": len(files), "processed": 0, "failed": 0}

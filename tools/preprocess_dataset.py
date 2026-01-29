@@ -173,15 +173,11 @@ def preprocess_medical(input_dir: str, output_dir: str, config: dict):
 
     print(f"[INFO] Medical-grade preprocessing: {len(files)} images")
     print(
-        f"[CONFIG] Bias correction: {
-            medical_config.get('apply_n4_bias_correction', True)
-        }"
+        f"[CONFIG] Bias correction: {medical_config.get('apply_n4_bias_correction', True)}"
     )
     print(f"[CONFIG] Skull strip: {medical_config.get('skull_strip_method', 'bet')}")
     print(
-        f"[CONFIG] Normalization: {
-            medical_config.get('intensity_normalization', 'nyul')
-        }"
+        f"[CONFIG] Normalization: {medical_config.get('intensity_normalization', 'nyul')}"
     )
 
     # Prepare configuration dictionary to pass to workers
