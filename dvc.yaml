@@ -1,0 +1,178 @@
+# dvc.yaml — Reproducible ML pipeline for brain tumor classification
+# Run the entire pipeline: dvc repro
+# Show metrics: dvc metrics show
+# Generate plots: dvc plots show
+#
+# Every stage defines explicit dependencies, outputs, and parameters
+# so that DVC can track changes and re-run only what is needed.
+
+stages:
+  download_brats:
+    cmd: python scripts/download_data.py --dataset brats2023
+    outs:
+      - data/raw/brats2023/
+
+  download_ucsf:
+    cmd: python scripts/download_data.py --dataset ucsf_pdgm
+    outs:
+      - data/raw/ucsf_pdgm/
+
+  preprocess_brats:
+    cmd: python scripts/preprocess.py --config configs/data/brats2023.yaml
+    deps:
+      - data/raw/brats2023/
+      - src/data/transforms.py
+      - src/data/quality_control.py
+    outs:
+      - data/processed/brats2023/
+    params:
+      - configs/data/brats2023.yaml:
+          - preprocessing
+          - quality_control
+
+  preprocess_ucsf:
+    cmd: python scripts/preprocess.py --config configs/data/ucsf_pdgm.yaml
+    deps:
+      - data/raw/ucsf_pdgm/
+      - src/data/transforms.py
+      - src/data/quality_control.py
+    outs:
+      - data/processed/ucsf_pdgm/
+    params:
+      - configs/data/ucsf_pdgm.yaml:
+          - preprocessing
+          - quality_control
+
+  create_splits:
+    cmd: python scripts/create_splits.py --seed 42
+    deps:
+      - data/processed/brats2023/
+      - src/data/splitter.py
+    outs:
+      - data/splits/brats_5fold.json
+    params:
+      - configs/config.yaml:
+          - seed
+          - cross_validation
+
+  train_fold_0:
+    cmd: >
+      python scripts/train.py
+      model=densenet121_2d
+      data=brats2023
+      training=baseline
+      fold=0
+    deps:
+      - data/processed/brats2023/
+      - data/splits/brats_5fold.json
+      - src/models/
+      - src/training/
+    outs:
+      - outputs/models/fold_0/
+    metrics:
+      - outputs/metrics/fold_0/metrics.json:
+          cache: false
+
+  train_fold_1:
+    cmd: >
+      python scripts/train.py
+      model=densenet121_2d
+      data=brats2023
+      training=baseline
+      fold=1
+    deps:
+      - data/processed/brats2023/
+      - data/splits/brats_5fold.json
+      - src/models/
+      - src/training/
+    outs:
+      - outputs/models/fold_1/
+    metrics:
+      - outputs/metrics/fold_1/metrics.json:
+          cache: false
+
+  train_fold_2:
+    cmd: >
+      python scripts/train.py
+      model=densenet121_2d
+      data=brats2023
+      training=baseline
+      fold=2
+    deps:
+      - data/processed/brats2023/
+      - data/splits/brats_5fold.json
+      - src/models/
+      - src/training/
+    outs:
+      - outputs/models/fold_2/
+    metrics:
+      - outputs/metrics/fold_2/metrics.json:
+          cache: false
+
+  train_fold_3:
+    cmd: >
+      python scripts/train.py
+      model=densenet121_2d
+      data=brats2023
+      training=baseline
+      fold=3
+    deps:
+      - data/processed/brats2023/
+      - data/splits/brats_5fold.json
+      - src/models/
+      - src/training/
+    outs:
+      - outputs/models/fold_3/
+    metrics:
+      - outputs/metrics/fold_3/metrics.json:
+          cache: false
+
+  train_fold_4:
+    cmd: >
+      python scripts/train.py
+      model=densenet121_2d
+      data=brats2023
+      training=baseline
+      fold=4
+    deps:
+      - data/processed/brats2023/
+      - data/splits/brats_5fold.json
+      - src/models/
+      - src/training/
+    outs:
+      - outputs/models/fold_4/
+    metrics:
+      - outputs/metrics/fold_4/metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: python scripts/evaluate.py --all-folds --bootstrap 1000
+    deps:
+      - outputs/models/
+      - data/processed/brats2023/
+      - src/evaluation/
+    metrics:
+      - outputs/evaluation/final_metrics.json:
+          cache: false
+    plots:
+      - outputs/evaluation/roc_curves.json:
+          cache: false
+
+  evaluate_external:
+    cmd: python scripts/evaluate.py --dataset ucsf_pdgm --bootstrap 1000
+    deps:
+      - outputs/models/
+      - data/processed/ucsf_pdgm/
+      - src/evaluation/
+    metrics:
+      - outputs/evaluation/external_metrics.json:
+          cache: false
+
+  interpretability:
+    cmd: python scripts/generate_figures.py --gradcam --iou-validation
+    deps:
+      - outputs/models/
+      - data/processed/brats2023/
+      - src/interpretability/
+    outs:
+      - outputs/figures/

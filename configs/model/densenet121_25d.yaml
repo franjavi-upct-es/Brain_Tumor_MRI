@@ -1,0 +1,21 @@
+# configs/model/densenet121_25d.yaml — DenseNet-121 2.5D configuration
+# Uses 3-5 adjacent slices as input channels to capture volumetric context
+# without the computational cost of full 3D networks.
+# This is an ablation study model: 2D vs 2.5D comparison.
+
+model:
+  name: "densenet121_25d"
+  backbone: "densenet121"
+  source: "monai"
+  spatial_dims: 2
+  in_channels: 12 # 4 modalities × 3 adjacent slices
+  pretrained: false # Cannot use ImageNet weights with 12 channels
+  dropout_rate: 0.5
+
+  # 2.5D specific settings
+  adjacent_slices: 3 # Number of adjacent slices (center ± 1)
+
+  head:
+    type: "linear"
+    hidden_dim: 256
+    dropout: 0.5

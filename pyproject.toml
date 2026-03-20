@@ -1,0 +1,146 @@
+# pyproject.toml — Brain Tumor Classification v2
+# Rigorous glioma grading from MRI using clinical-grade methodology
+# Author: Francisco Javier Mercader Martínez
+# Universidad Politécnica de Cartagena — TFG/TFM
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brain-tumor-classification-v2"
+version = "2.0.0"
+description = "Rigorous brain tumor MRI classification exposing and correcting artificial accuracy on Kaggle datasets"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Francisco Javier Mercader Martínez" }]
+
+dependencies = [
+  # Core deep learning
+  "torch>=2.0,<3.0",
+  "torchvision>=0.15,<1.0",
+  "pytorch-lightning>=2.0,<3.0",
+
+  # Medical imaging
+  "monai[all]>=1.3,<2.0",
+  "torchio>=0.19,<1.0",
+  "SimpleITK>=2.3,<3.0",
+  "nibabel>=5.0,<6.0",
+
+  # Configuration and experiment tracking
+  "hydra-core>=1.3,<2.0",
+  "omegaconf>=2.3,<3.0",
+  "wandb>=0.16,<1.0",
+
+  # Evaluation and metrics
+  "scikit-learn>=1.3,<2.0",
+  "scipy>=1.11,<2.0",
+
+  # Interpretability
+  "captum>=0.7,<1.0",
+
+  # Reproducibility
+  "dvc>=3.0,<4.0",
+
+  # Data handling and visualization
+  "numpy>=1.24,<2.0",
+  "pandas>=2.0,<3.0",
+  "matplotlib>=3.7,<4.0",
+  "seaborn>=0.13,<1.0",
+
+  # Image processing utilities
+  "Pillow>=10.0,<11.0",
+  "tqdm>=4.65,<5.0",
+
+  # Model architectures (timm for EfficientNet)
+  "timm>=0.9,<1.0",
+
+  # Synapse client for BraTS download
+  "synapseclient>=4.0,<5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4,<9.0",
+  "pytest-cov>=4.1,<6.0",
+  "ruff>=0.1,<1.0",
+  "pre-commit>=3.5,<4.0",
+  "jupyter>=1.0,<2.0",
+  "ipykernel>=6.25,<7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks integration tests requiring data",
+]
+
+
+# ============================================================================
+# Black Configuration (Code Formatting)
+# ============================================================================
+[tool.black]
+line-length = 80
+target-version = ["py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+# ============================================================================
+# Ruff Configuration (Fast Linter)
+# ============================================================================
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "C",  # flake8-comprehensions
+  "B",  # flake8-bugbear
+  "UP", # pyupgrade
+]
+ignore = [
+  "E501", # line too long (handled by black)
+  "B008", # do not perform function calls in argument defaults
+  "C901", # too complex
+  "B904", # Allow raising exceptions without from e
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py
+
+# ============================================================================
+# MyPy Configuration (Type Checking)
+# ============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false # Set to true for stricter typing
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+strict_equality = true

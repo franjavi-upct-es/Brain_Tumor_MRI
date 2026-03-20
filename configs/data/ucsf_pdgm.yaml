@@ -1,0 +1,61 @@
+# configs/data/brats2023.yaml — BraTS 2023 Adult Glioma dataset configuration
+# Source: Synapse (syn51156910) — ~1,470 patients, 4 MRI modalities per patient
+# Already co-registered to SRI24 atlas, 1mm³ isotropic, skull-stripped.
+
+dataset:
+  name: "brats2023"
+  source: "synapse"
+  synapse_id: "syn51156910"
+  raw_dir: "${paths.data_raw}/brats2023"
+  processed_dir: "${paths.data_processed}/brats2023"
+
+  # MRI modalities available per patient
+  modalities: ["t1", "t1ce", "t2", "flair"]
+
+  # Expected volume dimensions after BraTS preprocessing
+  expected_shape: [240, 240, 155]
+
+  # NIfTI file naming convention in BraTS
+  file_patterns:
+    t1: "*-t1n.nii.gz"
+    t1ce: "*-t1c.nii.gz"
+    t2: "*-t2w.nii.gz"
+    flair: "*-t2f.nii.gz"
+    segmentation: "*-seg.nii.gz"
+
+  # Segmentation labels in BraTS 2023
+  seg_labels:
+    background: 0
+    necrotic_core: 1 # NCR — Necrotic Tumor Core
+    edema: 2 # ED — Peritumoral Edematous/Invaded Tissue
+    enhancing_tumor: 3 # ET — GD-Enhancing Tumor
+
+# Classification task configuration 
+classification:
+  # Primary task: binary glioma grading
+  task: "glioma_grading"
+  classes:
+    LGG: 0 # Low-Grade Glioma (WHO Grade II-III)
+    HGG: 1 # High-Grade Glioma (WHO Grade IV / Glioblastoma)
+  num_classes: 2
+
+# Preprocessing pipeline for BraTS 
+preprocessing:
+  # BraTS is already co-registered, isotropic, skull-stripped
+  # Only z-score normalization and slice selection needed
+  z_score:
+    enabled: true
+    foreground_only: true # mu and sigma computed on voxels > 0
+
+  # 2D slice selection strategy
+  slice_selection:
+    method: "max_tumor_area" # Select slice with maximum tumor area from segmentation
+    axis: 2 # Axial plane (standard for brain MRI)
+    context_slices: 0 # 0 for pure 2D; set >0 for 2.5D
+
+# Quality control checks 
+quality_control:
+  check_dimensions: true
+  check_empty_volumes: true
+  check_all_modalities: true
+  min_tumor_voxels: 100 # Minimum tumor voxels to include a patient

@@ -1,0 +1,42 @@
+# configs/experiment/ablation_preproc.yaml — Preprocessing ablation study
+# Answers: "Does each preprocessing step contribute to performance?"
+# Method: Remove one step at a time and measure the delta.
+
+experiment:
+  name: "ablation_preprocessing"
+  description: "Measure contribution of each preprocessing step by systematic removal"
+
+  # Baseline: full preprocessing pipeline
+  baseline:
+    steps:
+      [
+        "n4_bias_correction",
+        "skull_stripping",
+        "z_score_normalization",
+        "resampling",
+      ]
+
+  # Ablations: remove one step each time
+  ablations:
+    - name: "no_n4"
+      remove: "n4_bias_correction"
+      question: "Does N4 bias field correction improve generalization?"
+
+    - name: "no_zscore"
+      remove: "z_score_normalization"
+      question: "Does z-score normalization affect cross-site performance?"
+
+    - name: "no_resampling"
+      remove: "resampling"
+      question: "Does isotropic resampling matter for 2D slice extraction?"
+
+    - name: "minimal"
+      remove: ["n4_bias_correction", "z_score_normalization"]
+      question: "How much do we lose with minimal preprocessing?"
+
+  # Fixed parameters across all ablations
+  model: "densenet121_2d"
+  dataset: "brats2023"
+  split: "stratified_group_kfold"
+  n_folds: 5
+  metric: "balanced_accuracy"

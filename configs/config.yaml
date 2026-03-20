@@ -1,108 +1,37 @@
+# configs/config.yaml — Root Hydra configuration for brain tumor classifcation v2
+# Composes data, model, training, and experiment configs via Hydra defeaults.
+
+defeaults:
+  - data: brats2023
+  - model: densenet121_2d
+  - training: baseline
+  - _self_
+
+# Global settings
 seed: 42
-framework: tensorflow/keras
-data:
-  auto_split: false
-  train_dir: data/train_medical
-  val_dir: data/val_medical
-  test_dir: data/test_medical
-  root_dir: data/train_medical
-  image_size: 224
-  channels: 3
-  num_classes: 4
-  class_names:
-  - glioma
-  - meningioma
-  - no_tumor
-  - pituitary
-  valid_split: 0.2
-  shuffle: true
-  balance: true
-preprocessing:
-  mode: medical
-  medical:
-    apply_n4_bias_correction: true
-    apply_rician_denoising: true
-    intensity_normalization: nyul
-    enhance_method: clahe
-    save_metadata: true
-    quality_filter: true
-    quality_filter_thresholds:
-      min_snr: 2.0
-      min_contrast: 50.0
-  legacy:
-    simple_crop: true
-    padding: 0
-train:
-  batch_size: 64
-  epochs: 35
-  mixed_precision: true
-  lr: 0.001
-  optimizer: adamw
-  weight_decay: 0.01
-  freeze_backbone_epochs: 5
-  loss: categorical_crossentropy
-  recall_loss: tversky
-  tversky_alpha: 0.3
-  tversky_beta: 0.7
-  focal_alpha: 0.75
-  focal_gamma: 2.0
-  label_smoothing: 0.0
-  pos_weight: 3.0
-  early_stopping_patience: 4
-  checkpoint_dir: models/
-  num_workers: 2
-  use_class_weights: true
-  use_cosine_decay: true
-  holdout_split_external: 0.15
-augment:
-  random_flip: true
-  random_rotate: 0.05
-  random_zoom: 0.1
-  random_brightness: 0.1
-  random_contrast: 0.1
-  mixup_alpha: 0.0
-  advanced:
-    enable: false
-    elastic_transform: false
-    grid_distortion: false
-    optical_distortion: false
-model:
-  name: efficientnet_v2_b0
-  pretrained: true
-  dropout: 0.25
-  pooling: avg
-log:
-  csv_log: training_log.csv
-  tensorboard_dir: tb/
-  save_confusion_matrix: true
-  save_classif_report: true
-inference:
-  tta: false
-  tta_samples: 5
-  threshold: 0.6000000000000002
-  target_recall: 0.9
-  max_fp_rate: 0.1
-  use_calibration: true
-  ensemble:
-    enabled: true
-    strategy: mean
-    checkpoints:
-    - finetuned_navoneel.keras
-    - best.keras
-  triage:
-    enabled: true
-    band: 0.05
-    max_disagreement: 0.1
-  mc_dropout:
-    enabled: false
-    samples: 10
-  last_threshold_reason: max recall subject to FP rate<=0.10 (target recall not reached)
-calibration:
-  enabled: true
-  max_iters: 200
-pipeline:
-  skip_existing_preprocessing: true
-  dataset_specific_preprocessing:
-    main: medical
-    external: medical
-    lgg: medical
+project_name: "brain_tumor_classification_v2"
+debug: false
+
+# Paths (relative to project root)
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  splits: "data/splits"
+  outputs: "outputs"
+  models: "outputs/models"
+  metrics: "outputs/metrics"
+  evaluation: "outputs/evaluation"
+  figures: "outputs/figures"
+  logs: "outputs/logs"
+
+# Cross-validation settings
+cross_validation:
+  n_splits: 5
+  shuffle: True
+
+# Wandb experiment tracking
+wandb:
+  project: "brain-tumor-v2"
+  entity: null # Set to your W&B username or team
+  mode: "online" # "online", "offline", or "disabled"
+  tags: ["v2", "rigorous"]

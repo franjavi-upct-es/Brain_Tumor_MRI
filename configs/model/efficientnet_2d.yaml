@@ -1,0 +1,17 @@
+# configs/model/efficientnet_2d.yaml — EfficientNet-B0 2D configuration (timm)
+# Best computational efficiency-to-performance ratio.
+# ~5M parameters. Continuity with v1 project for direct comparison.
+
+model:
+  name: "efficientnet_b0_2d"
+  backbone: "efficientnet_b0"
+  source: "timm"
+  spatial_dims: 2
+  in_channels: 4
+  pretrained: true
+  dropout_rate: 0.5
+
+  head:
+    type: "linear"
+    hidden_dim: 256
+    dropout: 0.5

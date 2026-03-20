@@ -1,0 +1,17 @@
+# configs/model/resnet50_2d.yaml — ResNet-50 2D configuration (torchvision)
+# Most widely used architecture in the literature; facilitates comparison.
+# ~25M parameters. Standard baseline for transfer learning evaluation.
+
+model:
+  name: "resnet50_2d"
+  backbone: "resnet50"
+  source: "torchvision"
+  spatial_dims: 2
+  in_channels: 4
+  pretrained: true
+  dropout_rate: 0.5
+
+  head:
+    type: "linear"
+    hidden_dim: 512
+    dropout: 0.5

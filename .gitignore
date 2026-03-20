@@ -1,8 +1,61 @@
-.idea
-.venv
-data
-models
-tb
-__pycache__
-*.csv
-wandb
+# .gitignore — Brain Tumor Classification
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data (tracked by DVC, not Git)
+data/raw/
+data/processed/
+data/splits/
+
+# Model outputs (tracked by DVC)
+outputs/models/
+outputs/metrics/
+outputs/evaluation/
+outputs/figures/
+outputs/logs/
+
+# DVC local cache
+/dvc.lock
+
+# Weights & Biases
+wandb/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Linting
+.ruff_cache/
+
+# pytest
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Synapse
+.synapseCache/

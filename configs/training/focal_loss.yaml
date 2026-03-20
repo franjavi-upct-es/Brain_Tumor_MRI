@@ -1,0 +1,56 @@
+# configs/training/baseline.yaml — Standard two-phase training protocol
+# Phase 1: Head-only warmup (backbone frozen)
+# Phase 2: Gradual unfreezing with discriminative learning rates
+
+training:
+  name: "baseline"
+
+  # Phase 1 — Head only 
+  phase1:
+    epochs: 10
+    optimizer: "adam"
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+    freeze_backbone: true
+
+  # Phase 2 — Gradual unfreezing 
+  phase2:
+    epochs: 25
+    optimizer: "adam"
+    lr_backbone: 1.0e-5 # Discriminative LR: low for backbone
+    lr_head: 1.0e-3 # Discriminative LR: high for head
+    weight_decay: 1.0e-4
+    freeze_backbone: false
+    unfreeze_every_n_epochs: 3 # Progressively unfreeze layers every 3 epochs
+
+  # Loss function
+  loss:
+    name: "cross_entropy"
+    label_smoothing: 0.1 # Phase 1 uses label smoothing
+
+  # Learning rate scheduler — Cosine Annealing with warmup 
+  scheduler:
+    name: "cosine_annealing"
+    warmup_epochs: 3
+    min_lr: 1.0e-7
+
+  # Early stopping on validation balanced accuracy 
+  early_stopping:
+    monitor: "val/balanced_accuracy"
+    patience: 10
+    mode: "max"
+
+  # Checkpointing — save best model by validation AUC 
+  checkpointing:
+    monitor: "val/auc_roc"
+    mode: "max"
+    save_top_k: 1
+
+  # Data loading
+  dataloader:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+
+  # Mixed precision for efficiency
+  precision: 16

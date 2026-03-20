@@ -1,0 +1,48 @@
+# configs/training/gradual_unfreeze.yaml — Aggressive gradual unfreezing strategy
+# Unfreezes backbone layers more frequently for deeper fine-tuning.
+# Used as an ablation to compare against the baseline unfreezing schedule.
+
+training:
+  name: "gradual_unfreeze"
+
+  phase1:
+    epochs: 5 # Shorter warmup
+    optimizer: "adam"
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+    freeze_backbone: true
+
+  phase2:
+    epochs: 30
+    optimizer: "adam"
+    lr_backbone: 5.0e-6 # Even lower backbone LR for stability
+    lr_head: 1.0e-3
+    weight_decay: 1.0e-4
+    freeze_backbone: false
+    unfreeze_every_n_epochs: 2 # More aggressive: unfreeze every 2 epochs
+
+  loss:
+    name: "cross_entropy"
+    label_smoothing: 0.1
+
+  scheduler:
+    name: "cosine_annealing"
+    warmup_epochs: 3
+    min_lr: 1.0e-7
+
+  early_stopping:
+    monitor: "val/balanced_accuracy"
+    patience: 10
+    mode: "max"
+
+  checkpointing:
+    monitor: "val/auc_roc"
+    mode: "max"
+    save_top_k: 1
+
+  dataloader:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+
+  precision: 16

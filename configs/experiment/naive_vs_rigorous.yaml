@@ -1,0 +1,40 @@
+# configs/experiment/naive_vs_rigorous.yaml — Central thesis experiment
+# The heart of the thesis: parallel execution of naive and rigorous approaches
+# to quantify the impact of methodological rigor on reported accuracy.
+
+experiment:
+  name: "naive_vs_rigorous"
+  description: "Compare inflated Kaggle results with rigorous BraTS methodology"
+
+  # Naive approach (Chapter 3 of thesis)
+  naive:
+    dataset: "kaggle_masoudnickparvar"
+    split_method: "random_image_level" # 80/10/10 by image — causes leakage
+    split_ratio: [0.8, 0.1, 0.1]
+    model: "efficientnet_b0"
+    preprocessing: "jpeg_resize_normalize"
+    metrics: ["accuracy", "loss"]
+    xai: "gradcam_no_validation"
+    expected_accuracy: "~99%"
+
+  # Rigorous approach (Chapter 5 of thesis)
+  rigorous:
+    dataset: "brats2023"
+    split_method: "stratified_group_kfold" # Patient-level — prevents leakage
+    n_folds: 5
+    models: ["densenet121", "resnet50", "efficientnet_b0"]
+    preprocessing: "nifti_n4_zscore"
+    metrics: ["balanced_accuracy", "f1_macro", "auc_roc", "cohens_kappa"]
+    xai: "gradcam_iou_validated"
+    expected_balanced_accuracy: "85-93%"
+
+  # External validation (Chapter 6)
+  external_validation:
+    dataset: "ucsf_pdgm"
+    expected_drop: "3-8 percentage points"
+
+  # Statistical comparison
+  statistical_tests:
+    - "mcnemar" # Compare error rates
+    - "delong" # Compare AUCs
+    - "wilcoxon" # Compare across folds
