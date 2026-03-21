@@ -30,7 +30,7 @@ dataset:
     edema: 2 # ED — Peritumoral Edematous/Invaded Tissue
     enhancing_tumor: 3 # ET — GD-Enhancing Tumor
 
-# Classification task configuration 
+# Classification task configuration
 classification:
   # Primary task: binary glioma grading
   task: "glioma_grading"
@@ -39,7 +39,7 @@ classification:
     HGG: 1 # High-Grade Glioma (WHO Grade IV / Glioblastoma)
   num_classes: 2
 
-# Preprocessing pipeline for BraTS 
+# Preprocessing pipeline for BraTS
 preprocessing:
   # BraTS is already co-registered, isotropic, skull-stripped
   # Only z-score normalization and slice selection needed
@@ -53,7 +53,7 @@ preprocessing:
     axis: 2 # Axial plane (standard for brain MRI)
     context_slices: 0 # 0 for pure 2D; set >0 for 2.5D
 
-# Quality control checks 
+# Quality control checks
 quality_control:
   check_dimensions: true
   check_empty_volumes: true

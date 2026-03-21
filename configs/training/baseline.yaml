@@ -5,7 +5,7 @@
 training:
   name: "baseline"
 
-  # Phase 1 — Head only 
+  # Phase 1 — Head only
   phase1:
     epochs: 10
     optimizer: "adam"
@@ -13,7 +13,7 @@ training:
     weight_decay: 1.0e-4
     freeze_backbone: true
 
-  # Phase 2 — Gradual unfreezing 
+  # Phase 2 — Gradual unfreezing
   phase2:
     epochs: 25
     optimizer: "adam"
@@ -28,19 +28,19 @@ training:
     name: "cross_entropy"
     label_smoothing: 0.1 # Phase 1 uses label smoothing
 
-  # Learning rate scheduler — Cosine Annealing with warmup 
+  # Learning rate scheduler — Cosine Annealing with warmup
   scheduler:
     name: "cosine_annealing"
     warmup_epochs: 3
     min_lr: 1.0e-7
 
-  # Early stopping on validation balanced accuracy 
+  # Early stopping on validation balanced accuracy
   early_stopping:
     monitor: "val/balanced_accuracy"
     patience: 10
     mode: "max"
 
-  # Checkpointing — save best model by validation AUC 
+  # Checkpointing — save best model by validation AUC
   checkpointing:
     monitor: "val/auc_roc"
     mode: "max"

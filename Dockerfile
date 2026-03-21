@@ -5,8 +5,6 @@
 # Usage:
 #   docker build -t brain-tumor-v2 .
 #   docker run --gpus all -v $(pwd)/data:/app/data brain-tumor-v2 make test
-#
-# Reference: Section 4 tech stack and Section 12 reproducibility checklist
 
 FROM pytorch/pytorch:2.2.0-cuda11.8-cudnn8-runtime
 

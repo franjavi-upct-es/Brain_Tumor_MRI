@@ -75,8 +75,7 @@ class TestValTransforms:
         """Validation transforms must be empty (no augmentation)."""
         transform = build_val_transforms()
         assert len(transform.transforms) == 0, (
-            "CRITICAL: Validation transforms must apply NO augmentation! "
-            "Section 6.3 explicitly states: val_transform = tio.Compose([])"
+            "CRITICAL: Validation transforms must apply NO augmentation!"
         )
 
     def test_val_transform_preserves_data(self) -> None:
