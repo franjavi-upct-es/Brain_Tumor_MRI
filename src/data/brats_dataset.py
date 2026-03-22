@@ -208,7 +208,7 @@ class BraTSDataset(Dataset):
         slice_idx = self._select_slice(seg_volume)
 
         # Extract 2D slices (or 2.5D multi-slice)
-        image = self._extract_slice(volumes, slice_idx)
+        image = self._extract_slices(volumes, slice_idx)
         seg_slice = seg_volume[:, :, slice_idx]
 
         # Build sample dictionary
