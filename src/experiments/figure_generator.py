@@ -466,7 +466,7 @@ def plot_cross_dataset_comparison(
     x = np.arange(len(labels))
     width = 0.3
 
-    bars1 = ax.bar(
+    ax.bar(
         x - width / 2,
         internal_vals,
         width,
@@ -475,7 +475,7 @@ def plot_cross_dataset_comparison(
         linewidth=0.3,
         label=internal_name,
     )
-    bars2 = ax.bar(
+    ax.bar(
         x + width / 2,
         external_vals,
         width,

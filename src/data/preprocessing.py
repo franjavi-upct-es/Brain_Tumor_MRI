@@ -130,7 +130,7 @@ def apply_n4_bias_correction(
     corrector.SetMaximumNumberOfIterations(iterations)
     corrector.SetConvergenceThreshold(convergence_threshold)
 
-    corrected = corrector.Execute(shrunk_image, shrunk_mask)
+    corrector.Execute(shrunk_image, shrunk_mask)
 
     # Get the bias field at full resolution
     log_bias_field = corrector.GetLogBiasFieldAsImage(image_float)

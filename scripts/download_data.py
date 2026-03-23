@@ -1,5 +1,4 @@
-# scripts/download_data.py
-# Automated dataset download for BraTS 2023 and UCSF-PDGM
+# scripts/download_data.py — Automated dataset download for BraTS 2023 and UCSF-PDGM
 """
 Download clinical-grade datasets for brain tumor classification.
 
@@ -41,8 +40,7 @@ DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 
 
 def download_brats2023(output_dir: Path) -> None:
-    """
-    Download BraTS 2023 Adult Glioma dataset from Synapse.
+    """Download BraTS 2023 Adult Glioma dataset from Synapse.
 
     Requires:
     1. A Synapse account (free registration at synapse.org).
@@ -108,8 +106,7 @@ def download_brats2023(output_dir: Path) -> None:
 
 
 def download_ucsf_pdgm(output_dir: Path) -> None:
-    """
-    Download UCSF-PDGM dataset from TCIA.
+    """Download UCSF-PDGM dataset from TCIA.
 
     The UCSF-PDGM dataset is freely available from The Cancer Imaging Archive.
     Contains 495 patients with diffuse gliomas, 11 MRI sequences per patient.
@@ -125,7 +122,9 @@ def download_ucsf_pdgm(output_dir: Path) -> None:
 
     logger.info("UCSF-PDGM Dataset Download")
     logger.info("=" * 60)
-    logger.info("The UCSF-PDGM dataset must be downloaded manually from TCIA.")
+    logger.info(
+        "The UCSF-PDGM dataset must be downloaded manually from TCIA."
+    )
     logger.info("Steps:")
     logger.info("  1. Visit: %s", tcia_url)
     logger.info("  2. Click 'Download' and use the NBIA Data Retriever.")
@@ -149,8 +148,7 @@ def download_ucsf_pdgm(output_dir: Path) -> None:
 
 
 def _attempt_tcia_download(output_dir: Path) -> None:
-    """
-    Attempt to download UCSF-PDGM via TCIA REST API.
+    """Attempt to download UCSF-PDGM via TCIA REST API.
 
     Parameters
     ----------
@@ -192,8 +190,7 @@ def _attempt_tcia_download(output_dir: Path) -> None:
 
 
 def _verify_brats_download(data_dir: Path) -> None:
-    """
-    Verify BraTS download by counting patient directories.
+    """Verify BraTS download by counting patient directories.
 
     Parameters
     ----------
@@ -242,19 +239,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.dataset in ("brats2023", "all"):
-        out = (
-            Path(args.output_dir)
-            if args.output_dir
-            else DATA_RAW_DIR / "brats2023"
-        )
+        out = Path(args.output_dir) if args.output_dir else DATA_RAW_DIR / "brats2023"
         download_brats2023(out)
 
     if args.dataset in ("ucsf_pdgm", "all"):
-        out = (
-            Path(args.output_dir)
-            if args.output_dir
-            else DATA_RAW_DIR / "ucsf_pdgm"
-        )
+        out = Path(args.output_dir) if args.output_dir else DATA_RAW_DIR / "ucsf_pdgm"
         download_ucsf_pdgm(out)
 
 

@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class TestResult:
+class StatisticalTestResult:
     """
     Result of a statistical significance test.
 
@@ -84,7 +84,7 @@ def mcnemar_test(
     alpha: float = 0.05,
     model_a_name: str = "Model A",
     model_b_name: str = "Model B",
-) -> TestResult:
+) -> StatisticalTestResult:
     """
     McNemar's test for comparing two classifiers' error rates.
 
@@ -109,7 +109,7 @@ def mcnemar_test(
 
     Returns
     -------
-    TestResult
+    StatisticalTestResult
         Statistical test result.
     """
     # Build the 2x2 contingency table
@@ -123,7 +123,7 @@ def mcnemar_test(
     # McNemar statistic with continuity correction
     n_discordant = b + c
     if n_discordant == 0:
-        return TestResult(
+        return StatisticalTestResult(
             test_name="McNemar",
             statistic=0.0,
             p_value=1.0,
@@ -154,7 +154,7 @@ def mcnemar_test(
 
     logger.info("McNemar's test: %s", description)
 
-    return TestResult(
+    return StatisticalTestResult(
         test_name="McNemar",
         statistic=statistic,
         p_value=p_value,
@@ -172,7 +172,7 @@ def delong_test(
     alpha: float = 0.05,
     model_a_name: str = "Model A",
     model_b_name: str = "Model B",
-) -> TestResult:
+) -> StatisticalTestResult:
     """
     DeLong's test for comparing two ROC-AUCs.
 
@@ -195,7 +195,7 @@ def delong_test(
 
     Returns
     -------
-    TestResult
+    StatisticalTestResult
         Statistical test result with AUC comparison.
     """
     from sklearn.metrics import roc_auc_score
@@ -260,7 +260,7 @@ def delong_test(
     )
     logger.info("DeLong's test: %s", description)
 
-    return TestResult(
+    return StatisticalTestResult(
         test_name="DeLong",
         statistic=z_stat,
         p_value=p_value,
@@ -278,7 +278,7 @@ def wilcoxon_signed_rank_test(
     model_a_name: str = "Model A",
     model_b_name: str = "Model B",
     metric_name: str = "metric",
-) -> TestResult:
+) -> StatisticalTestResult:
     """
     Wilcoxon signed-rank test for paired fold comparisons.
 
@@ -298,7 +298,7 @@ def wilcoxon_signed_rank_test(
 
     Returns
     -------
-    TestResult
+    StatisticalTestResult
         Statistical test result.
     """
     scores_a = np.array(scores_a)
@@ -317,7 +317,7 @@ def wilcoxon_signed_rank_test(
 
     # Check if all differences are zero
     if np.all(differences == 0):
-        return TestResult(
+        return StatisticalTestResult(
             test_name="Wilcoxon signed-rank",
             statistic=0.0,
             p_value=1.0,
@@ -345,7 +345,7 @@ def wilcoxon_signed_rank_test(
     )
     logger.info("Wilcoxon signed-rank test: %s", description)
 
-    return TestResult(
+    return StatisticalTestResult(
         test_name="Wilcoxon signed-rank",
         statistic=float(stat),
         p_value=float(p_value),

@@ -1,4 +1,5 @@
-# tests/test_evaluation/test_bootstrap.py — Tests for bootstrap confidence intervals
+# tests/test_evaluation/test_bootstrap.py
+# Tests for bootstrap confidence intervals
 """
 Verifies that patient-level bootstrap:
 - Produces valid confidence intervals (lower < point < upper).
@@ -77,10 +78,12 @@ class TestPatientLevelBootstrap:
 
         for name, br in results.items():
             assert br.ci_lower <= br.point_estimate + 0.01, (
-                f"{name}: CI lower ({br.ci_lower}) > point ({br.point_estimate})"
+                f"{name}: CI lower ({br.ci_lower}) > "
+                f"point ({br.point_estimate})"
             )
             assert br.ci_upper >= br.point_estimate - 0.01, (
-                f"{name}: CI upper ({br.ci_upper}) < point ({br.point_estimate})"
+                f"{name}: CI upper ({br.ci_upper}) < "
+                f"point ({br.point_estimate})"
             )
 
     def test_ci_lower_less_than_upper(self) -> None:

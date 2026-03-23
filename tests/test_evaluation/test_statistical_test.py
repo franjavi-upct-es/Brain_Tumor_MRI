@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+
 from src.evaluation.statistical_tests import (
-    TestResult,
+    StatisticalTestResult,
     delong_test,
     mcnemar_test,
     wilcoxon_signed_rank_test,
@@ -37,12 +38,12 @@ class TestMcNemarTest:
         assert result.significant
 
     def test_returns_test_result(self) -> None:
-        """Should return a TestResult dataclass."""
+        """Should return a StatisticalTestResult dataclass."""
         y_true = np.array([0, 1, 0, 1])
         y_pred_a = np.array([0, 1, 0, 0])
         y_pred_b = np.array([0, 0, 1, 1])
         result = mcnemar_test(y_true, y_pred_a, y_pred_b)
-        assert isinstance(result, TestResult)
+        assert isinstance(result, StatisticalTestResult)
         assert result.test_name == "McNemar"
 
     def test_to_dict_serializable(self) -> None:
