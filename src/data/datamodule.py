@@ -71,13 +71,13 @@ class SliceDataset(Dataset):
             image = torch.tensor(image, dtype=torch.float32)
 
         # Apply transform if provided
-        if self.transforms is not None:
+        if self.transform is not None:
             # TorchIO expects 4D tensors (C, H, W, D); add dummy D dim
             image_4d = image.unsqueeze(-1)
             import torchio as tio
 
             subject = tio.Subject(image=tio.ScalarImage(tensor=image_4d))
-            transformed = self.transforms(subject)
+            transformed = self.transform(subject)
             image = transformed["image"].data.squeeze(-1)
 
         sample["image"] = image

@@ -201,6 +201,56 @@ def train_fold(
     phase2_time = time.time() - t_start
     logger.info("Phase 2 complete in %.1f seconds", phase2_time)
 
+    # --- Save predictions on validation set ---
+    logger.info("\n--- Generating validation predictions ---")
+    import torch
+    import torch.nn.functional as F
+
+    model_phase1.eval()
+    model_phase1.freeze()
+
+    # Ensure datamodule is set up
+    datamodule.setup(stage="fit")
+    val_loader = datamodule.val_dataloader()
+
+    all_y_true = []
+    all_y_pred = []
+    all_y_prob = []
+    all_patient_ids = []
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_phase1.to(device)
+
+    with torch.no_grad():
+        for batch in val_loader:
+            images = batch["image"].to(device)
+            labels = batch["label"]
+            patient_ids = batch["patient_id"]
+
+            logits = model_phase1(images)
+            probs = F.softmax(logits, dim=1).cpu()
+            preds = torch.argmax(probs, dim=1)
+
+            all_y_true.extend(labels.tolist())
+            all_y_pred.extend(preds.tolist())
+            all_y_prob.extend(probs.tolist())
+            all_patient_ids.extend(patient_ids)
+
+    predictions = {
+        "y_true": all_y_true,
+        "y_pred": all_y_pred,
+        "y_prob": all_y_prob,
+        "patient_ids": all_patient_ids,
+        "model": backbone,
+        "fold": fold,
+    }
+
+    predictions_path = metrics_output / "predictions.json"
+    with open(predictions_path, "w") as f:
+        json.dump(predictions, f, indent=2)
+
+    logger.info("Predictions saved to %s (%d samples)", predictions_path, len(all_y_true))
+
     # --- Save final metrics ---
     results = {
         "fold": fold,

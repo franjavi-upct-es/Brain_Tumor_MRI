@@ -1,6 +1,6 @@
 # Makefile — Common commands for brain tumor classification
 
-.PHONY: help install test lint clean repro download preprocess train evaluate all
+.PHONY: help install test lint clean repro download extract-brats preprocess train evaluate all
 
 PYTHON := uv run python
 PYTEST := uv run pytest
@@ -30,10 +30,10 @@ test-cov:  ## Run tests with coverage report
 	$(PYTEST) tests/ -v --cov=src --cov-report=term-missing --cov-report=html
 
 lint:  ## Run linter (ruff)
-	ruff check src/ tests/ scripts/
+	uv run ruff check src/ tests/ scripts/
 
 lint-fix:  ## Run linter with auto-fix
-	ruff check --fix src/ tests/ scripts/
+	uv run ruff check --fix src/ tests/ scripts/
 
 # ---------- Data ----------
 
@@ -45,6 +45,19 @@ download-brats:  ## Download BraTS 2023 only
 
 download-ucsf:  ## Download UCSF-PDGM only
 	$(PYTHON) scripts/download_data.py --dataset ucsf_pdgm
+
+extract-brats:  ## Extract BraTS 2023 zip files into flat patient directories
+	@echo "Extracting BraTS 2023 GLI training data..."
+	@mkdir -p data/raw/brats2023/_extract_tmp
+	@for zip in data/raw/brats2023/Data/BraTS-GLI/*TrainingData.zip; do \
+		echo "  Extracting $$(basename $$zip)..." ; \
+		unzip -q -o "$$zip" -d data/raw/brats2023/_extract_tmp ; \
+	done
+	@for dir in data/raw/brats2023/_extract_tmp/*/BraTS-GLI-*; do \
+		mv "$$dir" data/raw/brats2023/ ; \
+	done
+	@rm -rf data/raw/brats2023/_extract_tmp
+	@echo "Extracted $$(ls -d data/raw/brats2023/BraTS-GLI-* 2>/dev/null | wc -l) patient directories."
 
 preprocess:  ## Run preprocessing pipeline
 	$(PYTHON) scripts/preprocess.py --config configs/data/brats2023.yaml
@@ -73,7 +86,7 @@ evaluate-external:  ## Evaluate on UCSF-PDGM external dataset
 	$(PYTHON) scripts/evaluate.py --dataset ucsf_pdgm --bootstrap 1000
 
 figures:  ## Generate all thesis figures
-	$(PYTHON) scripts/generate_figures.py --gradcam --iou-validation
+	$(PYTHON) scripts/generate_figures.py --all
 
 # ---------- Reproducibility ----------
 

@@ -423,7 +423,7 @@ def preprocess_brats_patient(
 
     # Save as NPZ
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"{patient_dir}.npz"
+    out_path = output_dir / f"{patient_id}.npz"
     np.savez_compressed(
         out_path,
         image=image,

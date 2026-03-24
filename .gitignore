@@ -17,6 +17,7 @@ env/
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
@@ -35,9 +36,10 @@ outputs/metrics/
 outputs/evaluation/
 outputs/figures/
 outputs/logs/
+lightning_logs/
 
 # DVC local cache
-/dvc.lock
+# (dvc.lock is intentionally tracked by git — do not ignore it)
 
 # Weights & Biases
 wandb/

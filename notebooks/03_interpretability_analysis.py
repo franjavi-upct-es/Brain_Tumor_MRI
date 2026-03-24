@@ -1,4 +1,4 @@
-# notebooks/04_interpretability_analysis.py — Interpretability analysis
+# notebooks/03_interpretability_analysis.py — Interpretability analysis
 """
 Interpretability Analysis for Brain Tumor Classification v2
 ============================================================

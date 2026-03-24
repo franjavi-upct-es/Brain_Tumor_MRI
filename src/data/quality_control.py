@@ -3,7 +3,7 @@
 Automated quality control checks for BraTS 2023 and UCSF-PDGM datasets.
 
 Verififes data integrity before training to catch issues early:
-- Volume dimensions match expected shape (240x240x155 for BraTS).
+- Volume dimensions match expected shape (182x218x182 for BraTS).
 - No corrupt or empty volumes.
 - All 4 MRI modalities present per patient.
 - Minimum tumor voxel count in segmentations.
@@ -154,7 +154,7 @@ class DatasetQualityControl:
         n_failed = 0
 
         for patient_dir in patient_dirs:
-            result = self.check_dataset(patient_dir)
+            result = self.check_patient(patient_dir)
             results.append(result)
             if result.passed:
                 n_passed += 1
@@ -213,7 +213,7 @@ class DatasetQualityControl:
         """Verify volumes are not empty (all zeros)."""
         nifti_files = list(patient_dir.glob("*.nii.gz"))
         for nifti_path in nifti_files:
-            if "seg" in nifti_path.lower():
+            if "seg" in nifti_path.name.lower():
                 continue
 
             try:

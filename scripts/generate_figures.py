@@ -187,20 +187,86 @@ def main() -> None:
     else:
         fig_dir = output_dir / "figures"
         fig_dir.mkdir(parents=True, exist_ok=True)
+        generated = 0
 
         if args.split_comparison:
             path = eval_dir / "split_comparison.json"
             if path.exists():
                 with open(path) as f:
                     plot_split_comparison(json.load(f), fig_dir / "split_comparison.png")
+                generated += 1
 
         if args.ablation:
             path = eval_dir / "ablation_preprocessing.json"
             if path.exists():
                 with open(path) as f:
                     plot_ablation_study(json.load(f), fig_dir / "ablation_preprocessing.png")
+                generated += 1
 
-        logger.info("Selected figures generated.")
+        if args.roc:
+            roc_files = list(eval_dir.glob("roc_*.json"))
+            if roc_files:
+                roc_data = {}
+                for roc_file in roc_files:
+                    with open(roc_file) as f:
+                        roc_data[roc_file.stem] = json.load(f)
+                plot_roc_curves(roc_data, fig_dir / "roc_curves.png")
+                generated += 1
+
+        if args.confusion_matrix:
+            for report_file in eval_dir.glob("*_report.json"):
+                with open(report_file) as f:
+                    report = json.load(f)
+                cm_data = report.get("metrics", {}).get("confusion_matrix", {})
+                cm_abs = cm_data.get("absolute", [])
+                if cm_abs:
+                    cm_arr = np.array(cm_abs)
+                    plot_confusion_matrix(
+                        cm_arr, ["LGG", "HGG"],
+                        fig_dir / f"cm_{report_file.stem}.png",
+                        title=f"Confusion Matrix — {report.get('model', '')}",
+                    )
+                    generated += 1
+
+        if args.calibration:
+            for report_file in eval_dir.glob("*_report.json"):
+                with open(report_file) as f:
+                    report = json.load(f)
+                cal_data = report.get("calibration")
+                if cal_data:
+                    plot_calibration_diagram(
+                        cal_data,
+                        fig_dir / f"calibration_{report_file.stem}.png",
+                        model_name=report.get("model", "Model"),
+                    )
+                    generated += 1
+
+        if args.cross_dataset:
+            internal_path = eval_dir / "final_metrics.json"
+            external_path = eval_dir / "external_metrics.json"
+            if internal_path.exists() and external_path.exists():
+                with open(internal_path) as f:
+                    internal = json.load(f)
+                with open(external_path) as f:
+                    external = json.load(f)
+                internal_agg = internal.get("aggregated", {})
+                external_agg = external.get("aggregated", {})
+                int_metrics = {k: v["mean"] for k, v in internal_agg.items()}
+                ext_metrics = {k: v["mean"] for k, v in external_agg.items()}
+                if int_metrics and ext_metrics:
+                    plot_cross_dataset_comparison(
+                        int_metrics, ext_metrics,
+                        fig_dir / "cross_dataset.png",
+                    )
+                    generated += 1
+
+        if args.gradcam:
+            logger.warning("GradCAM figure generation not yet implemented")
+
+        if args.iou_validation:
+            logger.warning("IoU validation figure generation not yet implemented")
+
+        logger.info("Selected figures generated: %d figures", generated)
 
 
 if __name__ == "__main__":

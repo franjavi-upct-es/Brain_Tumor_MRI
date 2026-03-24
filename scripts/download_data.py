@@ -88,11 +88,16 @@ def download_brats2023(output_dir: Path) -> None:
     )
 
     try:
-        # Download the training data folder
-        files = syn.getChildren(synapse_id)
-        for child in files:
-            logger.info("Downloading: %s", child["name"])
-            syn.get(child["id"], downloadLocation=str(output_dir))
+        import synapseutils
+    except ImportError:
+        logger.error(
+            "synapseutils not installed. Run: pip install synapseclient[pysftp]"
+        )
+        sys.exit(1)
+
+    try:
+        # Recursively sync the entire BraTS folder tree to output_dir
+        synapseutils.syncFromSynapse(syn, synapse_id, path=str(output_dir))
     except Exception as e:
         logger.error("Download failed: %s", e)
         logger.info(

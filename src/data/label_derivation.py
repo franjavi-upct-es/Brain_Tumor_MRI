@@ -198,7 +198,9 @@ def derive_brats_labels(
             data_dir / "name_mapping.csv",
             data_dir / "metadata.csv",
             data_dir / "labels.csv",
+            data_dir / "clinical_metadata.csv",
             data_dir.parent / "name_mapping.csv",
+            data_dir.parent / "clinical_metadata.csv",
         ]
         for candidate in candidates:
             if candidate.exists():

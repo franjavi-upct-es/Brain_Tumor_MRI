@@ -86,6 +86,20 @@ def preprocess_brats(
         logger.error("Raw data directory not found: %s", raw_dir)
         sys.exit(1)
 
+    # Check if data needs extraction first
+    patient_dirs = [d for d in raw_dir.iterdir() if d.is_dir() and d.name.startswith("BraTS-")]
+    zip_dir = raw_dir / "Data" / "BraTS-GLI"
+    if not patient_dirs and zip_dir.exists():
+        zip_files = list(zip_dir.glob("*TrainingData.zip"))
+        if zip_files:
+            logger.error(
+                "Found %d zip file(s) in %s but no extracted patient directories. "
+                "Run 'make extract-brats' first to extract the data.",
+                len(zip_files),
+                zip_dir,
+            )
+            sys.exit(1)
+
     # Step 1: Derive grade labels
     logger.info("\n--- Step 1: Deriving grade labels ---")
     labels = derive_brats_labels(raw_dir, metadata_path)

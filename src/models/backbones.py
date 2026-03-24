@@ -110,7 +110,7 @@ def _build_densenet121(
     logger.info(
         (
             "Built DenseNet-121 (MONAI): in_channels=%d, "
-            "pretrained=%s, features=$d"
+            "pretrained=%s, features=%d"
         ),
         in_channels,
         pretrained,

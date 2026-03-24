@@ -250,7 +250,7 @@ class TumorClassifier(pl.LightningModule):
         self.val_acc(preds, labels)
         self.val_bal_acc(preds, labels)
         self.val_f1(preds, labels)
-        self.val_auc(probs, labels)
+        self.val_auc(probs[:, 1], labels)
         self.val_kappa(preds, labels)
         self.val_precision(preds, labels)
         self.val_recall(preds, labels)
