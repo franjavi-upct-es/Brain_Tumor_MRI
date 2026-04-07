@@ -121,7 +121,7 @@ class BraTSDataset(Dataset):
             # Skip patients without grade labels
             if patient_id not in self.grade_labels:
                 logger.debug(
-                    "Skipping %s: no grade label available".patient_id
+                    "Skipping %s: no grade label available", patient_id
                 )
                 continue
 
@@ -271,7 +271,7 @@ class BraTSDataset(Dataset):
         Returns:
             3D numpy array with segmentation labels.
         """
-        seg_path = patient_dir / f"{patient_dir}{SEG_SUFFIX}"
+        seg_path = patient_dir / f"{patient_id}{SEG_SUFFIX}"
         nii = nib.load(str(seg_path))
         return nii.get_fdata().astype(np.int32)
 

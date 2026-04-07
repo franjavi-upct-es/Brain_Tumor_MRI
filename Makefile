@@ -59,6 +59,9 @@ extract-brats:  ## Extract BraTS 2023 zip files into flat patient directories
 	@rm -rf data/raw/brats2023/_extract_tmp
 	@echo "Extracted $$(ls -d data/raw/brats2023/BraTS-GLI-* 2>/dev/null | wc -l) patient directories."
 
+clean-unlabeled:  ## Remove BraTS patients without ground-truth grade labels
+	$(PYTHON) scripts/download_data.py --dataset brats2023 --clean-unlabeled
+
 preprocess:  ## Run preprocessing pipeline
 	$(PYTHON) scripts/preprocess.py --config configs/data/brats2023.yaml
 	$(PYTHON) scripts/preprocess.py --config configs/data/ucsf_pdgm.yaml

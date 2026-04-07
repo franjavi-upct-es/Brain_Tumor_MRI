@@ -157,7 +157,7 @@ class IntegratedGradientsGenerator:
         for i in range(0, len(scaled_inputs), self.internal_batch_size):
             batch = scaled_inputs[
                 i : i + self.internal_batch_size
-            ].requires_grad_(True)
+            ].detach().requires_grad_(True)
             output = self.model(batch)
             target_scores = output[:, target_class].sum()
             target_scores.backward()
@@ -167,7 +167,7 @@ class IntegratedGradientsGenerator:
 
         # Approximate integral via trapezoidal rule
         avg_grads = (grads[:-1] + grads[1:]).mean(dim=0) / 2
-        ig = (image - baseline).squeeze() * avg_grads
+        ig = ((image - baseline) * avg_grads).squeeze()
 
         attr_map = ig.detach().cpu().numpy()
         if attr_map.ndim == 3:

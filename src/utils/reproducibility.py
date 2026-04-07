@@ -20,6 +20,11 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+try:
+    from monai.utils import set_determinism
+except ImportError:  # pragma: no cover - exercised by patching the symbol.
+    set_determinism = None
+
 
 def set_global_seed(seed: int = 42) -> None:
     """
@@ -61,9 +66,14 @@ def set_monai_determinism(seed: int = 42) -> None:
     Args:
         seed: Integer seed value.
     """
-    try:
-        from monai.utils import set_determinism
+    if set_determinism is None:
+        logger.warning(
+            "MONAI not installed. Falling back to manual seed setting."
+        )
+        set_global_seed(seed)
+        return
 
+    try:
         set_determinism(seed=seed)
         logger.info("MONAI deterministic mode enabled with seed %d.", seed)
     except ImportError:

@@ -165,6 +165,67 @@ def derive_brats_labels_from_segmentation(
     return labels
 
 
+def derive_brats_labels_from_mapping_xlsx(
+    xlsx_path: Path,
+) -> dict[str, int]:
+    """
+    Derive HGG/LGG labels from BraTS2023-2017 mapping Excel file.
+
+    Uses the "Cohort Name" column to assign labels:
+        TCGA-GBM, CPTAC-GBM, IvyGAP, ACRIN-FMISO-Brain → HGG (1)
+        TCGA-LGG → LGG (0)
+        Private Collection, priorToBraTS2017 → unknown (skipped)
+
+    Parameters
+    ----------
+    xlsx_path : Path
+        Path to BraTS2023_2017_GLI_Mapping.xlsx.
+
+    Returns
+    -------
+    dict[str, int]
+        Mapping from patient_id to binary label for patients with known cohorts.
+    """
+    import pandas as pd
+
+    df = pd.read_excel(xlsx_path)
+
+    cohort_col = "Cohort Name (if publicly available)"
+    id_col = "BraTS2023"
+
+    if cohort_col not in df.columns or id_col not in df.columns:
+        logger.warning(
+            "Expected columns not found in %s. Columns: %s",
+            xlsx_path, list(df.columns),
+        )
+        return {}
+
+    # Map cohort names to grade labels
+    hgg_cohorts = {"TCGA-GBM", "CPTAC-GBM", "IvyGAP", "ACRIN-FMISO-Brain (ACRIN 6684)"}
+    lgg_cohorts = {"TCGA-LGG"}
+
+    labels = {}
+    for _, row in df.iterrows():
+        pid = str(row[id_col]).strip()
+        cohort = str(row[cohort_col]).strip()
+
+        if cohort in hgg_cohorts:
+            labels[pid] = 1
+        elif cohort in lgg_cohorts:
+            labels[pid] = 0
+        # else: unknown cohort, skip — will fall back to segmentation heuristic
+
+    logger.info(
+        "Loaded %d labels from mapping xlsx (cohort-based): %d HGG, %d LGG, "
+        "%d unknown (skipped)",
+        len(labels),
+        sum(1 for v in labels.values() if v == 1),
+        sum(1 for v in labels.values() if v == 0),
+        len(df) - len(labels),
+    )
+    return labels
+
+
 def derive_brats_labels(
     data_dir: Path,
     metadata_path: Path | None = None,
@@ -173,9 +234,10 @@ def derive_brats_labels(
     Derive BraTS grade labels using metadata first, segmentation fallback.
 
     Strategy:
-    1. If metadata CSV exists, load labels from there (authoritative).
-    2. For patients missing from metadata, use segmentation heuristic.
-    3. Log statistics and coverage.
+    1. If Excel mapping file exists, extract labels from cohort names.
+    2. If metadata CSV exists, load labels from there.
+    3. For patients missing from both, use segmentation heuristic.
+    4. Log statistics and coverage.
 
     Parameters
     ----------
@@ -191,7 +253,17 @@ def derive_brats_labels(
     """
     labels = {}
 
-    # Try metadata-based derivation first
+    # Try Excel mapping file first (most reliable for BraTS 2023)
+    xlsx_candidates = [
+        data_dir / "Data" / "BraTS-GLI" / "BraTS2023_2017_GLI_Mapping.xlsx",
+        data_dir / "BraTS2023_2017_GLI_Mapping.xlsx",
+    ]
+    for xlsx_path in xlsx_candidates:
+        if xlsx_path.exists():
+            labels = derive_brats_labels_from_mapping_xlsx(xlsx_path)
+            break
+
+    # Try metadata CSV as secondary source
     if metadata_path is None:
         # Search common metadata file locations
         candidates = [
@@ -208,16 +280,25 @@ def derive_brats_labels(
                 break
 
     if metadata_path is not None and metadata_path.exists():
-        labels = derive_brats_labels_from_metadata(metadata_path)
-        logger.info("Loaded %d labels from metadata file.", len(labels))
-    else:
+        csv_labels = derive_brats_labels_from_metadata(metadata_path)
+        for pid, label in csv_labels.items():
+            if pid not in labels:
+                labels[pid] = label
+
+    if not labels:
         logger.info(
-            "No metadata CSV found. Using segmentation-based derivation."
+            "No metadata CSV or mapping xlsx found. "
+            "Using segmentation-based derivation."
         )
 
     # Fill in missing patients using segmentation heuristic
-    patient_dirs = [d for d in data_dir.iterdir() if d.is_dir()]
-    missing_patients = [d.name for d in patient_dirs if d.name not in labels]
+    patient_dirs = [
+        d for d in data_dir.iterdir()
+        if d.is_dir() and d.name.startswith("BraTS-")
+    ]
+    missing_patients = [
+        d.name for d in patient_dirs if d.name not in labels
+    ]
 
     if missing_patients:
         logger.info(

@@ -349,6 +349,7 @@ def wilcoxon_signed_rank_test(
         test_name="Wilcoxon signed-rank",
         statistic=float(stat),
         p_value=float(p_value),
+        significant=significant,
         alpha=alpha,
         effect_size=mean_diff,
         description=description,

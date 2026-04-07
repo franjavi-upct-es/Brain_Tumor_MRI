@@ -194,6 +194,99 @@ def _attempt_tcia_download(output_dir: Path) -> None:
     )
 
 
+def clean_brats_unlabeled(data_dir: Path) -> None:
+    """Remove BraTS patients without ground-truth grade labels.
+
+    BraTS 2023 includes ~1250 patients, but only ~238 have reliable
+    grade labels via their cohort of origin (TCGA-GBM, TCGA-LGG,
+    CPTAC-GBM, IvyGAP, ACRIN-FMISO-Brain). The remaining ~1017
+    "Private Collection" patients lack grade metadata.
+
+    This function removes unlabeled patient directories to save disk
+    space and avoid noisy segmentation-based label heuristics.
+
+    Parameters
+    ----------
+    data_dir : Path
+        Root BraTS data directory containing patient subdirectories.
+    """
+    import shutil
+
+    xlsx_candidates = [
+        data_dir / "Data" / "BraTS-GLI" / "BraTS2023_2017_GLI_Mapping.xlsx",
+        data_dir / "BraTS2023_2017_GLI_Mapping.xlsx",
+    ]
+    xlsx_path = None
+    for candidate in xlsx_candidates:
+        if candidate.exists():
+            xlsx_path = candidate
+            break
+
+    if xlsx_path is None:
+        logger.warning(
+            "BraTS2023_2017_GLI_Mapping.xlsx not found. "
+            "Cannot determine labeled patients. Skipping cleanup."
+        )
+        return
+
+    try:
+        import pandas as pd
+    except ImportError:
+        logger.warning("pandas not installed. Skipping cleanup.")
+        return
+
+    df = pd.read_excel(xlsx_path)
+    cohort_col = "Cohort Name (if publicly available)"
+    id_col = "BraTS2023"
+
+    if cohort_col not in df.columns or id_col not in df.columns:
+        logger.warning("Unexpected columns in mapping file. Skipping cleanup.")
+        return
+
+    hgg_cohorts = {
+        "TCGA-GBM", "CPTAC-GBM", "IvyGAP",
+        "ACRIN-FMISO-Brain (ACRIN 6684)",
+    }
+    lgg_cohorts = {"TCGA-LGG"}
+
+    labeled_ids = set()
+    for _, row in df.iterrows():
+        cohort = str(row[cohort_col]).strip()
+        if cohort in hgg_cohorts or cohort in lgg_cohorts:
+            labeled_ids.add(str(row[id_col]).strip())
+
+    patient_dirs = [
+        d for d in data_dir.iterdir()
+        if d.is_dir() and d.name.startswith("BraTS-")
+    ]
+
+    to_remove = [d for d in patient_dirs if d.name not in labeled_ids]
+    to_keep = [d for d in patient_dirs if d.name in labeled_ids]
+
+    if not to_remove:
+        logger.info("No unlabeled patients to remove.")
+        return
+
+    logger.info(
+        "Cleaning unlabeled patients: keeping %d labeled, removing %d unlabeled",
+        len(to_keep), len(to_remove),
+    )
+
+    for patient_dir in to_remove:
+        shutil.rmtree(patient_dir)
+
+    logger.info(
+        "Cleanup complete. %d labeled patients remain (%d HGG cohort, %d LGG cohort)",
+        len(to_keep),
+        sum(1 for d in to_keep if d.name in
+            {str(r[id_col]).strip() for _, r in df.iterrows()
+             if str(r[cohort_col]).strip() in hgg_cohorts}),
+        sum(1 for d in to_keep if d.name in
+            {str(r[id_col]).strip() for _, r in df.iterrows()
+             if str(r[cohort_col]).strip() in lgg_cohorts}),
+    )
+
+
 def _verify_brats_download(data_dir: Path) -> None:
     """Verify BraTS download by counting patient directories.
 
@@ -241,14 +334,39 @@ def main() -> None:
         default=None,
         help="Override output directory (default: data/raw/{dataset})",
     )
+    parser.add_argument(
+        "--clean-unlabeled",
+        action="store_true",
+        help=(
+            "Remove BraTS patients without ground-truth grade "
+            "labels (keeps only cohort-labeled patients)"
+        ),
+    )
     args = parser.parse_args()
 
+    if args.clean_unlabeled and args.dataset in ("brats2023", "all"):
+        out = (
+            Path(args.output_dir)
+            if args.output_dir
+            else DATA_RAW_DIR / "brats2023"
+        )
+        clean_brats_unlabeled(out)
+        return
+
     if args.dataset in ("brats2023", "all"):
-        out = Path(args.output_dir) if args.output_dir else DATA_RAW_DIR / "brats2023"
+        out = (
+            Path(args.output_dir)
+            if args.output_dir
+            else DATA_RAW_DIR / "brats2023"
+        )
         download_brats2023(out)
 
     if args.dataset in ("ucsf_pdgm", "all"):
-        out = Path(args.output_dir) if args.output_dir else DATA_RAW_DIR / "ucsf_pdgm"
+        out = (
+            Path(args.output_dir)
+            if args.output_dir
+            else DATA_RAW_DIR / "ucsf_pdgm"
+        )
         download_ucsf_pdgm(out)
 
 

@@ -324,10 +324,7 @@ def plot_gradcam_grid(
     n_rows = (n_samples + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows))
-    if n_rows == 1:
-        axes = axes[np.newaxis, :]
-    if n_cols == 1:
-        axes = axes[:, np.newaxis]
+    axes = np.asarray(axes).reshape(n_rows, n_cols)
 
     for idx, sample in enumerate(samples):
         row = idx // n_cols
